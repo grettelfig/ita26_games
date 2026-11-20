@@ -11,7 +11,7 @@ const ACOL = { 0: '#a8c8ff', 1: '#ffe27a', 2: '#ff4a6a', 3: '#ffb070' };   // ea
 
 // ---- where things are on the battle screen (UI layer, 320 x 180)
 function eC() { const sp = B && EN[B.t] && ENIMG[EN[B.t].spr], im = sp && sp.big, h = im && im.naturalHeight ? im.naturalHeight * 1.25 : 50; return [160, 165 - h / 2] }
-function cardC(i) { const j = slotOf(i), c = CARDXY[j] || CARDXY[0]; return [c[0] + 33, c[1] + 35] }
+function cardC(i) { const j = slotOf(i), c = CARDXY[j] || CARDXY[0]; return [c[0] + 27, c[1] + 30] }
 const ease = q => q < 0 ? 0 : q > 1 ? 1 : 1 - (1 - q) * (1 - q);
 
 // ---- the step runner: a step can carry an animation; its effect (damage, healing) lands on the animation's hit frame

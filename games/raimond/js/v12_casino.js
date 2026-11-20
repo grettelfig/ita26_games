@@ -81,7 +81,7 @@ Object.assign(PROPS, {
   A('n_casino', { ...CASINO, nm: 'Casino Abyss', w: R.w, h: R.h, feat: R.feat,
     exits: [ex('down', 23, 24, 'n_plaza'), ex('up', 20, 21, 'n_lounge', { deep: 4 }), ex('up', 27, 28, 'n_vault', { deep: 4 }), ex('up', 24, 25, 'n_backroom', { deep: 4 })],
     ents: [...slots, ...R.ents, npc('chips', 25, 24), npc('pearl', 21, 35, { reach: 30 }), npc('rex', 41, 38), npc('gus', 13, 22), npc('fay', 34, 22),
-      obj('cashier', 25, 35, [], { ev: 'cashier', inv: 1 }), obj('cardtable', 17, 27, ['|A card table. Five chairs, four hands dealt, one empty.'], { inv: 1 }), obj('roulette', 23, 22, ['|The wheel spins by itself. It always lands on six.'], { inv: 1 }),
+      obj('cashier', 25, 35, [], { ev: 'cashier', inv: 1 }), obj('cardtable', 17, 27, ['|A card table. Four hands dealt, nobody playing.'], { inv: 1 }), obj('roulette', 23, 22, ['|The wheel spins by itself. It always lands on six.'], { inv: 1 }),
       obj('pool', 9, 8, ['|Someone left a game half-finished. The eight ball is already sunk.', 'Hitori:neutral|...So somebody lost before they started.'], { inv: 1 }),
       obj('fish', 10, 5, ['|Four fish circle the tank. They never come close to each other, and they never leave each other either.'], { inv: 1 }),
       en('glitch', 20, 28, 2, 2), en('static', 27, 29, 2, 2), chest('c:n_casino', 44, 38, { snacks: 3 })] });

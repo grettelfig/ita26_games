@@ -36,8 +36,8 @@ NPC_DLG.uku = e => S.a == 'w_uhouse' ? [UKU_HOME, ukuLeaves] : _ukuDlg14(e);
 // Four portrait cards in the corners. Each card's background is the character's emotion: a dithered gradient,
 // white for neutral, yellow for happy, blue for sad, red for angry. The face is the matching portrait.
 // The message box sits on top; the commands are four painted buttons at the bottom.
-const CARD = { w: 66, h: 70 }, CARDXY = [[3, 3], [3, 107], [251, 3], [251, 107]];
-CARDXY.forEach(([x, y], j) => { SLOTS[j][0] = x + 33; SLOTS[j][1] = y + 60 });
+const CARD = { w: 54, h: 72 }   /* about OMORI's size: small cards in the four corners */, CARDXY = [[4, 4], [4, 104], [262, 4], [262, 104]];
+CARDXY.forEach(([x, y], j) => { SLOTS[j][0] = x + 27; SLOTS[j][1] = y + 52 });
 const EMOGRAD = { neutral: ['#ffffff', '#1c1a26', '#c8c8d4'], happy: ['#fff8c8', '#e88a10', '#ffd84a'], sad: ['#e4f0ff', '#1a3a9a', '#6aa0ff'], angry: ['#ffe0d4', '#a8101c', '#ff5a4a'] };
 const EMOBG = {};
 function emoBg(e) {   // a 124x92 dithered gradient (drawn at 2x, so the dither stays fine)
@@ -63,19 +63,20 @@ function drawCard(i, j) {
   const edge = act ? '#ffd23c' : '#fff';
   r(x - 1, y - 1, CARD.w + 2, CARD.h + 2, '#000'); r(x, y, CARD.w, CARD.h, edge); r(x + 1, y + 1, CARD.w - 2, CARD.h - 2, '#0c0a14');
   // name tab: name on the left, the emotion in its colour on the right
-  r(x + 1, y + 1, CARD.w - 2, 11, act ? '#3a2a10' : '#000'); txt(CH[i].n.toUpperCase(), x + 4, y + 3, act ? '#ffd23c' : '#fff', 'left', 6); txt(e.toUpperCase(), x + CARD.w - 4, y + 3.5, G[2], 'right', 5);
+  r(x + 1, y + 1, CARD.w - 2, 9, act ? '#3a2a10' : '#000'); txt(CH[i].n.toUpperCase(), x + 3, y + 2.5, act ? '#ffd23c' : '#fff', 'left', 5);
   // portrait window
-  const px = x + 2, py = y + 13, pw = CARD.w - 4, ph = 46; r(px - 1, py - 1, pw + 2, ph + 2, edge);
+  const px = x + 2, py = y + 11, pw = CARD.w - 4, ph = CARD.w - 4;   /* square, like the chart */ r(px - 1, py - 1, pw + 2, ph + 2, edge);
   X.imageSmoothingEnabled = false; X.drawImage(emoBg(e), px, py, pw, ph);
   const im = cutPortrait(i, e); X.save(); X.beginPath(); X.rect(px, py, pw, ph); X.clip();
-  if (ready(im)) { const s = 50 / im.naturalWidth, bob = act ? Math.round(Math.sin(tick / 10)) : 0; X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(im, px + (pw - 50) / 2, py + 2 + bob, 50, im.naturalHeight * s); X.imageSmoothingEnabled = false }
+  if (ready(im) && im.v63) { const bob = act ? Math.round(Math.sin(tick / 10)) : 0; X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(im, px, py + bob, pw, ph)   /* the whole (widened) picture */; X.imageSmoothingEnabled = false }   // the chart's whole coloured box, face in the middle of the window
+  else if (ready(im)) { const s = 50 / im.naturalWidth, bob = act ? Math.round(Math.sin(tick / 10)) : 0; X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(im, px + (pw - 50) / 2, py + 2 + bob, 50, im.naturalHeight * s); X.imageSmoothingEnabled = false }
   if (hitT) r(px, py, pw, ph, 'rgba(255,40,40,' + (hitT / 14 * .5).toFixed(2) + ')');
   if (dead) { r(px, py, pw, ph, 'rgba(10,8,20,.72)'); txt('DOWN', px + pw / 2, py + ph / 2 - 4, '#aaa', 'center', 7) }
-  X.restore();
+  X.restore(); { const et = e.toUpperCase(), ew = tw(et, 4.5) + 4; r(px + pw - ew, py + ph - 7, ew, 7, 'rgba(0,0,0,.75)'); txt(et, px + pw - 2, py + ph - 6.5, G[2], 'right', 4.5) }   // the emotion, small, in the corner of the picture
   // HP: a heart and a red bar with the numbers inside
-  const hy = y + 61; heart(x + 3, hy + 1, dead ? '#555' : '#ff3a5a');
+  const hy = y + 63; heart(x + 3, hy + 1, dead ? '#555' : '#ff3a5a');
   r(x + 12, hy, CARD.w - 15, 8, '#000'); r(x + 13, hy + 1, CARD.w - 17, 6, '#4a0e1a'); const f = Math.round((CARD.w - 17) * clamp(hp / maxHp(i), 0, 1));
-  r(x + 13, hy + 1, f, 6, dead ? '#555' : '#e8283c'); r(x + 13, hy + 1, f, 2, dead ? '#666' : '#ff7a8a'); txt(hp + '/' + maxHp(i), x + CARD.w - 5, hy + 1.5, '#fff', 'right', 5);
+  r(x + 13, hy + 1, f, 6, dead ? '#555' : '#e8283c'); r(x + 13, hy + 1, f, 2, dead ? '#666' : '#ff7a8a'); txt(hp + '/' + maxHp(i), x + CARD.w - 5, hy + 1.8, '#fff', 'right', 4.5);
 }
 
 // painted command buttons
@@ -136,9 +137,9 @@ drawBattle = function () {
 for (const k in PORTRAITS) PORTRAITS[k] = loadImg(PORTRAITS[k].src.replace('/portraits/', '/portraits_cut/'));
 const _drawDialog14 = drawDialog;
 drawDialog = function () {
-  if (DL && DL.q[DL.i]) { sU(); const l = DL.q[DL.i], def = LK[l.n], BX = 6, BW = 308, BH = 38, BY = H - BH - 5, ol = (x, y, w, h) => r(x - 1, y - 1, w + 2, h + 2, '#000');
+  if (DL && DL.q[DL.i]) { sU(); const l = DL.q[DL.i], d0 = LK[l.n], def = d0 && (CH.includes(d0) || d0.key == 'npc_hikari') ? d0 : null, BX = 10, BW = 300, BH = 39, BY = H - BH - 5, ol = (x, y, w, h) => r(x - 1, y - 1, w + 2, h + 2, '#000');
     ol(BX, BY, BW, BH);
-    if (def) { const PS = 42, slide = DL.sp === l.n ? (DL.slide || 0) + 1 : 1, rise = Math.min(1, slide / 8), fy = BY - PS + 1 + Math.round((1 - rise) * (PS - 2)); ol(BX + BW - PS, fy, PS, PS) }
+    if (def) { const PW = PORT_W, PH = PORT_H, slide = DL.sp === l.n ? (DL.slide || 0) + 1 : 1, rise = Math.min(1, slide / 8), fy = BY - PH + 1 + Math.round((1 - rise) * (PH - 2)); ol(BX + BW - PW, fy, PW, PH) }
     const tag = def ? l.n : l.n && l.n != '' ? l.n : null; if (tag) { const nw = Math.ceil(tw(tag.toUpperCase(), 8)) + 12; ol(BX, BY - 14, nw, 13) } }
   _drawDialog14();
 };

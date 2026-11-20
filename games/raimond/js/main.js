@@ -23,4 +23,49 @@ function loop() {
 let last = 0, acc = 0;
 (function f(t) { acc += Math.min(100, t - last); last = t; while (acc >= 16.67) { loop(); acc -= 16.67 } requestAnimationFrame(f) })(0);
 if (document.fonts) { document.fonts.load('16px "Synchronicity Hand"'); document.fonts.ready.then(() => { for (const k in MP) delete MP[k] }) }
+// Show the privacy notice before beginning telemetry on this browser.
+// Re-show it whenever the policy version changes.
+const PRIVACY_NOTICE_VERSION = '2026-11-16';
+const PRIVACY_NOTICE_KEY = 'syn_privacy_notice_seen';
+const privacyGate = document.getElementById('privacy-gate') || Object.assign(document.createElement('div'), { hidden: true });   // (a page without the notice, like the test page: nothing to show, no telemetry)
+const privacyContinue = document.getElementById('privacy-continue') || Object.assign(document.createElement('div'), { hidden: true });   // (a page without the notice, like the test page: nothing to show, no telemetry)
+const privacyShortcut = document.getElementById('privacy-shortcut') || Object.assign(document.createElement('div'), { hidden: true });   // (a page without the notice, like the test page: nothing to show, no telemetry)
+let privacyNoticeSeen = false;
+try {
+  privacyNoticeSeen = localStorage.getItem(PRIVACY_NOTICE_KEY) === PRIVACY_NOTICE_VERSION;
+} catch (_) { /* Storage may be unavailable. */ }
+
+function launchGameSessionAfterNotice() {
+  if (privacyGate.hidden) return;
+  privacyGate.hidden = true;
+  privacyShortcut.hidden = false;
+  try { localStorage.setItem(PRIVACY_NOTICE_KEY, PRIVACY_NOTICE_VERSION); }
+  catch (_) { /* Continue without saving preference. */ }
+  ensureGameSessionStarted();
+}
+
+// Capture inputs while the notice is visible so they cannot control the game underneath.
+window.addEventListener('keydown', event => {
+  if (!privacyGate.hidden) {
+    if (privacyGate.contains(event.target)) return; // Let links and buttons work.
+    if (event.key === 'Tab') return; // Keep standard keyboard navigation.
+    event.stopImmediatePropagation();
+    if (event.key !== 'Enter' && event.key !== ' ') event.preventDefault();
+  }
+}, true);
+window.addEventListener('keyup', event => {
+  if (!privacyGate.hidden && !privacyGate.contains(event.target)) event.stopImmediatePropagation();
+}, true);
+privacyGate.addEventListener('keydown', event => event.stopPropagation());
+privacyGate.addEventListener('keyup', event => event.stopPropagation());
+privacyContinue.addEventListener('click', launchGameSessionAfterNotice);
+
 title();
+if (privacyNoticeSeen) {
+  privacyGate.hidden = true;
+  privacyShortcut.hidden = false;
+  ensureGameSessionStarted();
+} else {
+  privacyContinue.focus();
+}
+

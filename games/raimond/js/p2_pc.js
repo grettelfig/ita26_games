@@ -3,11 +3,11 @@
 // Lock screen, sign-in with a username and a password (the hint points at the cat on the fridge), the desktop,
 // the Start menu, and apps you can open: Edge with YouTube, File Explorer, Notepad, Photos, Settings, a working
 // Calculator, Paint you can draw in, Clock, Calendar, Outlook, the Store, Word, Excel, PowerPoint, Media Player, Xbox.
-// Most of them can't do much without the internet. The real mouse moves the pointer.
+// v73: the internet works now, in a limited way, and every app does something: see p2_net.js. The real mouse moves the pointer.
 const PCF = '"Segoe UI Variable Text", "Segoe UI", "Noto Sans", "DejaVu Sans", Arial, sans-serif';
 const PC_USER = 'hitori', PC_PASS = ['mochi0311', 'mochi03.11', 'mochi311'];
 const PCC = document.createElement('canvas'); PCC.width = 640; PCC.height = 360; const G = PCC.getContext('2d');
-function pcOpen() { return { k: 'pc', scr: 'lock', user: '', pass: '', focus: null, err: 0, t: 0, wins: [], start: 0, all: 0, power: 0, mx: 320, my: 200, said: {}, z: 0, sq: '', fade: 0 } }
+function pcOpen() { const known = P2.day > 1 || (P2.f && P2.f.pcKnown); return { k: 'pc', scr: 'lock', user: known ? PC_USER : '', pass: known ? PC_PASS[0] : '', focus: null, err: 0, t: 0, wins: [], start: 0, all: 0, power: 0, mx: 320, my: 200, said: {}, z: 0, sq: '', fade: 0 } }
 // ---- typing
 addEventListener('keydown', e => {
   if (sc != 'p2' || !P2.ui || P2.ui.k != 'pc') return; const u = P2.ui, f = u.focus; if (!f) return;
@@ -62,6 +62,7 @@ function ico(k, x, y, s = 1) {
     case 'snip': sq(1, 1, 14, 14, '#e83a6a', 3); G.strokeStyle = '#fff'; G.lineWidth = 1.3; G.strokeRect(4, 4, 8, 8); break;
     case 'pc': sq(1, 2, 14, 9, '#4cc2ff', 1.5); sq(2, 3, 12, 7, '#0f6cbd', 1); sq(5, 12, 6, 2, '#999', .5); break;
     case 'bin': sq(3, 4, 10, 11, 'rgba(200,220,240,.75)', 1.5); sq(2, 2, 12, 2, '#d8e4f0', .5); for (let i = 0; i < 3; i++) R2(5 + i * 2.5, 6, 1, 7, 'rgba(80,100,130,.5)'); break;
+    case 'chat': sq(1, 2, 14, 10, '#5a68d8', 3); G.beginPath(); G.moveTo(4, 11); G.lineTo(3, 15); G.lineTo(8, 11); G.fillStyle = '#5a68d8'; G.fill(); for (let i = 0; i < 3; i++) R2(4.5 + i * 3, 6, 1.6, 1.6, '#fff'); break;
     case 'save': sq(1, 1, 14, 14, '#2a5aa8', 1.5); sq(4, 1, 8, 5, '#d8dce4', .5); R2(9, 2, 2, 3, '#2a5aa8'); sq(3, 8.5, 10, 6, '#f4f4f4', .8); for (let i = 0; i < 2; i++) R2(5, 10.5 + i * 2, 6, .8, '#99a'); break;
     case 'txt': sq(3, 1, 10, 14, '#f4f4f4', 1); for (let i = 0; i < 4; i++) R2(5, 4 + i * 2.6, 6, 1, '#888'); break;
     case 'jpg': sq(3, 1, 10, 14, '#f4f4f4', 1); sq(4, 5, 8, 6, '#4cc2ff', .5); R2(4, 9, 8, 2, '#36a46a'); break;
@@ -85,7 +86,7 @@ const APPS = {
   settings: { n: 'Settings', i: 'settings', w: 470, h: 280 }, calc: { n: 'Calculator', i: 'calc', w: 180, h: 260 }, paint: { n: 'Paint', i: 'paint', w: 420, h: 270 }, clock: { n: 'Clock', i: 'clock', w: 360, h: 230 },
   calendar: { n: 'Calendar', i: 'calendar', w: 380, h: 260 }, mail: { n: 'Outlook', i: 'mail', w: 420, h: 250 }, store: { n: 'Microsoft Store', i: 'store', w: 420, h: 250 }, word: { n: 'Word', i: 'word', w: 360, h: 220 },
   excel: { n: 'Excel', i: 'excel', w: 360, h: 220 }, ppt: { n: 'PowerPoint', i: 'ppt', w: 360, h: 220 }, media: { n: 'Media Player', i: 'media', w: 400, h: 240 }, xbox: { n: 'Xbox', i: 'xbox', w: 400, h: 240 },
-  terminal: { n: 'Terminal', i: 'terminal', w: 380, h: 200 }, savegame: { n: 'Save game', i: 'save', w: 280, h: 180 }, snip: { n: 'Snipping Tool', i: 'snip', w: 300, h: 120 },
+  terminal: { n: 'Terminal', i: 'terminal', w: 380, h: 200 }, savegame: { n: 'Save game', i: 'save', w: 280, h: 180 }, unsent: { n: 'unsent.txt - Notepad', i: 'notepad', w: 330, h: 200 }, history: { n: 'History', i: 'edge', w: 400, h: 260 }, snip: { n: 'Snipping Tool', i: 'snip', w: 300, h: 120 },
 };
 const PINNED11 = ['edge', 'word', 'excel', 'ppt', 'mail', 'calendar', 'store', 'photos', 'settings', 'calc', 'clock', 'notepad', 'paint', 'explorer', 'media', 'xbox', 'snip', 'terminal'];
 const HISTORY = ['my sister left without saying goodbye', 'how to find someone who doesnt want to be found', 'number says no longer in service what does that mean', 'is it my fault she left', 'how long can you sleep without waking up', 'hearing footsteps when nobody else is home', 'what happens if you stop taking your meds', 'why do my friends whisper about me', 'how to say sorry to someone who wont pick up'];
@@ -107,8 +108,8 @@ function thumb(i, x, y, w, h, t) {
   RR(x + w - 30, y + h - 12, 27, 9, 2, 'rgba(0,0,0,.8)'); T2(VIDS[i][4], x + w - 16.5, y + h - 11, '#fff', 6.5, 600, 'center'); G.restore();
 }
 function pcSignIn(u) {
-  if (u.user.trim().toLowerCase() == PC_USER && PC_PASS.includes(u.pass.trim().toLowerCase())) { u.scr = 'welcome'; u.wt = 0; u.focus = null; beep(660, .08); beep(880, .1) }
-  else { u.err++; u.pass = ''; beep(200, .2, 1, 'square'); if (u.err == 1) say3(['Hitori|...Shit. What was it again?']); if (u.err == 2) say3(['Hitori|Something with Mochi. Mochi and... a date?']) }
+  if (u.user.trim().toLowerCase() == PC_USER && PC_PASS.includes(u.pass.trim().toLowerCase())) { u.scr = 'welcome'; u.wt = 0; u.focus = null; beep(660, .08); beep(880, .1); P2.f.pcKnown = 1; if (/Password|calendar/i.test(P2.objective || '')) P2.objective = '' }
+  else { u.err++; u.pass = ''; beep(200, .2, 1, 'square'); if (u.err == 1) say3(['Hitori|...Shit. What was it again?']); P2.objective = 'Password: Mochi + the day she came home (ddmm). The calendar on the wall by the desk.'; if (u.err == 2) say3(['Hitori|Something with Mochi. Mochi and... a date?']) }
 }
 function openApp(u, a, o = {}) {
   u.start = 0; u.power = 0; const A = APPS[a]; if (!A) return;
@@ -122,11 +123,12 @@ function openApp(u, a, o = {}) {
   return w;
 }
 function openFile(u, f) {
-  if (f == 'notes.txt') return openApp(u, 'notepad'); if (f == 'us.jpg') return openApp(u, 'photos'); if (f == 'bus_ticket.pdf') return openApp(u, 'edge', { page: 'pdf' });
+  if (f == 'notes.txt') return openApp(u, 'notepad'); if (f == 'unsent.txt') return openApp(u, 'unsent');
+  const ph = { 'us.jpg': 0, 'last_train.jpg': 1, 'mochi.jpg': 2, 'beach.jpg': 3, 'drawing.png': 4 }[f]; if (ph != null) { const w = openApp(u, 'photos'); w.st.i = ph; return w } if (f == 'bus_ticket.pdf') return openApp(u, 'edge', { page: 'pdf' });
   if (f == 'voicemail.m4a') { const w = openApp(u, 'media'); w.st.err = 1; if (!u.said.vm) { u.said.vm = 1; say3(['Hitori|A voicemail. From that number with the heart.', 'Hitori|...It won\'t play. Of course it won\'t play.']) } return w }
 }
 function pcClose(u) { SFX3.click(); P2.ui = null;
-  P2.cut = { k: 'stand', t: 0, after: () => { if (P2.f.history && !P2.f.afterPC) { P2.f.afterPC = 1; say3(['Hitori|...', 'Hitori|Why does my chest hurt.', 'Hitori|The photos on the wardrobe. There\'s something about them.'], () => { P2.objective = 'The photos on the wardrobe.' }) } } } }
+  P2.cut = { k: 'stand', t: 0, after: () => { if (P2.day == 1 && P2.f.history && !P2.f.afterPC) { P2.f.afterPC = 1; say3(['Hitori|...', 'Hitori|Why does my chest hurt.', 'Hitori|The photos on the wardrobe. There\'s something about them.'], () => { P2.objective = 'The photos on the wardrobe.' }) } } } }
 // ---------------------------------------------------------------- input
 function pcUpdate(u) {
   u.t++; u.fade = Math.min(1, u.fade + .05);
@@ -161,7 +163,7 @@ function drawPC(u) {
 function drawLock(u) {
   G.drawImage(wall11(), 0, 0); const d = new Date();
   if (u.scr == 'lock') { R2(0, 0, 640, 360, 'rgba(0,0,0,.15)'); T2(d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'), 320, 46, '#fff', 64, 600, 'center'); T2(d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }), 320, 118, '#f0f0f0', 14, 500, 'center');
-    ico('nowifi', 576, 334, 1); ico('bat', 600, 334, 1); if ((u.t >> 5) % 2) T2('Click anywhere to sign in', 320, 300, 'rgba(255,255,255,.7)', 9, 400, 'center'); return }
+    ico('wifi', 576, 334, 1); ico('bat', 600, 334, 1); if ((u.t >> 5) % 2) T2('Click anywhere to sign in', 320, 300, 'rgba(255,255,255,.7)', 9, 400, 'center'); return }
   R2(0, 0, 640, 360, 'rgba(8,12,30,.62)');
   C2(320, 132, 40, '#cfd3da'); C2(320, 118, 15, '#8a8f98'); G.fillStyle = '#8a8f98'; G.beginPath(); G.save(); G.beginPath(); G.arc(320, 132, 40, 0, 7); G.clip(); G.beginPath(); G.ellipse(320, 168, 30, 22, 0, 0, 7); G.fill(); G.restore();
   if (u.scr == 'welcome') { T2('Welcome', 320, 184, '#fff', 18, 600, 'center'); for (let i = 0; i < 5; i++) { const a = u.wt / 9 - i * .45; C2(320 + Math.cos(a) * 9, 226 + Math.sin(a) * 9, 1.6, '#fff') } return }
@@ -172,13 +174,13 @@ function drawLock(u) {
   if (u.err >= 1) T2('Password hint: who sleeps on my keyboard + the day she came home (ddmm)', 320, 276, '#d0d8ff', 9, 400, 'center');
   T2('Sign-in options', 320, 294, '#cfe0ff', 9, 400, 'center');
   ico('user', 14, 326, 1.1); T2('Other user', 36, 330, '#fff', 9, 600); RR(8, 322, 90, 26, 4, null, 'rgba(255,255,255,.25)');
-  ico('nowifi', 566, 334, 1); ico('power', 610, 333, 1); T2('Click a box to type. Enter signs in. Esc leaves.', 320, 344, 'rgba(255,255,255,.4)', 8, 400, 'center');
+  ico('wifi', 566, 334, 1); ico('power', 610, 333, 1); T2('Click a box to type. Enter signs in. Esc leaves.', 320, 344, 'rgba(255,255,255,.4)', 8, 400, 'center');
 }
 function drawDesk(u, B) {
   G.drawImage(wall11(), 0, 0);
   // desktop icons (double-click, or click twice)
-  [['This PC', 'pc', () => openApp(u, 'explorer', { dir: 'This PC' })], ['Recycle Bin', 'bin', () => openApp(u, 'explorer', { dir: 'Recycle Bin' })], ['Microsoft Edge', 'edge', () => openApp(u, 'edge')], ['Save game', 'save', () => openApp(u, 'savegame')], ['notes.txt', 'txt', () => openFile(u, 'notes.txt')], ['us.jpg', 'jpg', () => openFile(u, 'us.jpg')]].forEach(([n, ic, f], i) => {
-    const x = 6, y = 6 + i * 50, hv = IN(u, x, y, 54, 46); if (u.sel == n || hv) RR(x, y, 54, 46, 3, u.sel == n ? 'rgba(120,170,255,.35)' : 'rgba(255,255,255,.12)'); ico(ic, x + 13, y + 3, 1.8); T2(fit2(n, 52, 8), x + 27, y + 33, '#fff', 8, 400, 'center');
+  [['This PC', 'pc', () => openApp(u, 'explorer', { dir: 'This PC' })], ['Recycle Bin', 'bin', () => openApp(u, 'explorer', { dir: 'Recycle Bin' })], ['Microsoft Edge', 'edge', () => openApp(u, 'edge')], ['Save game', 'save', () => openApp(u, 'savegame')], ['Chat', 'chat', () => openApp(u, 'chat')], ['notes.txt', 'txt', () => openFile(u, 'notes.txt')], ['us.jpg', 'jpg', () => openFile(u, 'us.jpg')]].forEach(([n, ic, f], i) => {
+    const x = 6 + ((i / 6) | 0) * 60, y = 6 + (i % 6) * 50, hv = IN(u, x, y, 54, 46); if (u.sel == n || hv) RR(x, y, 54, 46, 3, u.sel == n ? 'rgba(120,170,255,.35)' : 'rgba(255,255,255,.12)'); ico(ic, x + 13, y + 3, 1.8); T2(fit2(n, 52, 8), x + 27, y + 33, '#fff', 8, 400, 'center');
     B([x, y, 54, 46], () => { if (u.sel == n && u.t - (u.selT || 0) < 40) { u.sel = null; f() } else { u.sel = n; u.selT = u.t } }) });
   // windows, back to front
   for (const w of u.wins) if (!w.min) drawWin(u, w, B);
@@ -195,7 +197,7 @@ function drawDesk(u, B) {
       const w = u.wins.find(w => w.app == a); if (w && !w.min && u.wins[u.wins.length - 1] == w) { w.min = 1; return } openApp(u, a) });
     x += ww + 2 });
   const d = new Date(); T2(d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'), 606, 337, '#fff', 8, 400, 'right'); T2(d.toLocaleDateString('en-GB'), 606, 347, '#ddd', 7.5, 400, 'right');
-  ico('nowifi', 532, 339, .9); ico('vol', 548, 339, .9); ico('bat', 564, 339, .9); T2('^', 516, 340, '#ccc', 9); ico('bell', 614, 339, .9); C2(626, 340, 2.5, '#4cc2ff');
+  ico('wifi', 532, 339, .9); ico('vol', 548, 339, .9); ico('bat', 564, 339, .9); T2('^', 516, 340, '#ccc', 9); ico('bell', 614, 339, .9); C2(626, 340, 2.5, '#4cc2ff');
   if (u.start) drawStart(u, B);
   if (u.histT && u.t - u.histT == 140 && !P2.f.history) { P2.f.history = 1; say3(['Hitori|...I didn\'t search any of this.', 'Hitori|Did I?', 'Hitori|"My sister." I don\'t have a sister.', 'Hitori|...Do I?']) }
 }
@@ -242,20 +244,37 @@ function offline(u, w, x, y, ww, hh, B, title, sub) { R2(x, y, ww, hh, '#1c1c20'
 const NOTES = ['things to remember:', '', '- eat something', '- take meds (!!)', '- call her back', '- call her back', '- CALL HER BACK', '', 'she said she needed space. ok. i can give her space.', 'i can wait.', '', 'they keep whispering when i call. i can hear them', 'whispering. caroline says they arent. caroline lies'];
 const APPDRAW = {
   // saving part two: the computer is where you save, into the same three slots as part one (they read "Hitori's house").
-  // It keeps the day you're on; loading one starts that day again.
+  // It keeps the exact moment (where she is, what she's done and chosen); loading puts her back there.
   savegame(u, w, x, y, ww, hh, B) { const st = w.st;
     R2(x, y, ww, hh, '#202024'); ico('save', x + 12, y + 10, 1.4); T2('Save game', x + 40, y + 10, '#fff', 11, 600); T2('Part Two  ·  ' + p2DayName(P2.stage) + '  ·  pick a slot', x + 40, y + 25, '#aaa', 8);
     if (st.done > 0) st.done--;
     [0, 1, 2].forEach(i => { const by = y + 44 + i * 26, hv = IN(u, x + 12, by, ww - 24, 22), on = st.done > 0 && st.slot == i;
       RR(x + 12, by, ww - 24, 22, 4, on ? '#2a7ad8' : hv ? '#3a3a42' : '#2c2c32', '#45454d'); T2(summ(i), x + 20, by + 6, '#eee', 8.5); if (on) T2('Saved', x + ww - 20, by + 6, '#fff', 8.5, 600, 'right');
       B([x + 12, by, ww - 24, 22], () => { p2Save(i); st.done = 90; st.slot = i; beep(660, .05); beep(880, .08) }) });
-    T2('Load it from Continue on the title screen. It starts this day again.', x + 12, y + hh - 16, '#888', 7.5) },
+    T2('Load it from Continue on the title screen: you\'ll be right back here.', x + 12, y + hh - 16, '#888', 7.5) },
   generic(u, w, x, y, ww, hh, B) { offline(u, w, x, y, ww, hh, B, 'Can\'t connect', 'Check your internet connection and try again.') },
   notepad(u, w, x, y, ww, hh) { R2(x, y, ww, hh, '#1f1f1f'); R2(x, y, ww, 16, '#2a2a2e'); ['File', 'Edit', 'View'].forEach((n, i) => T2(n, x + 8 + i * 30, y + 3, '#ddd', 8.5)); RR(x + 6, y + 17, 90, 15, [4, 4, 0, 0], '#2c2c30'); T2('notes.txt', x + 14, y + 20, '#ddd', 8);
     R2(x, y + 32, ww, hh - 46, '#272727'); NOTES.forEach((l, i) => T2(l, x + 8, y + 37 + i * 11, i >= 11 ? '#e8c8c8' : '#e8e8e8', 8.5, 400)); R2(x, y + hh - 14, ww, 14, '#2a2a2e'); T2('Ln 13, Col 49   |   100%   |   UTF-8', x + 8, y + hh - 11, '#999', 7.5) },
-  photos(u, w, x, y, ww, hh) { R2(x, y, ww, hh, '#141418'); T2('us.jpg', x + 10, y + 5, '#ddd', 8.5); const cv = POLCV.pol1; if (cv) { const s = Math.min(ww - 30, (hh - 50) / 1.2); G.imageSmoothingEnabled = true; G.drawImage(cv, 0, 0, 256, 256, x + (ww - s) / 2, y + 22, s, s) } T2('2 years ago  ·  1 of 1', x + ww / 2, y + hh - 16, '#888', 8, 400, 'center') },
+  // Photos: her pictures (the polaroids, scanned) and, if she saved one, her drawing; ‹ › to flip through
+  photos(u, w, x, y, ww, hh, B) { const P = [['us.jpg', 'pol1', '2 years ago'], ['last_train.jpg', 'pol3', '1 year ago'], ['mochi.jpg', 'pol2', '3 years ago'], ['beach.jpg', 'pol4', 'a long time ago']]; if (P2.lastDrawing) P.push(['drawing.png', null, 'today']);
+    const st = w.st; st.i = clamp(st.i || 0, 0, P.length - 1); const [nm, key, when] = P[st.i]; R2(x, y, ww, hh, '#141418'); T2(nm, x + 10, y + 5, '#ddd', 8.5);
+    const cv = key ? POLCV[key] : P2.lastDrawing && P2.lastDrawing.canvas, s2 = Math.min(ww - 60, (hh - 50) / (key ? 1 : .6)); if (cv) { G.imageSmoothingEnabled = true; if (key) G.drawImage(cv, 0, 0, 256, 256, x + (ww - s2) / 2, y + 22, s2, s2); else G.drawImage(cv, x + (ww - s2) / 2, y + 22, s2, s2 * cv.height / cv.width) }
+    T2(when + '  ·  ' + (st.i + 1) + ' of ' + P.length, x + ww / 2, y + hh - 16, '#888', 8, 400, 'center');
+    for (const [d, bx, ch] of [[-1, x + 6, '‹'], [1, x + ww - 26, '›']]) { const hv = IN(u, bx, y + hh / 2 - 14, 20, 28); RR(bx, y + hh / 2 - 14, 20, 28, 4, hv ? '#34343c' : '#24242a'); T2(ch, bx + 10, y + hh / 2 - 7, '#ddd', 12, 400, 'center'); B([bx, y + hh / 2 - 14, 20, 28], () => { st.i = (st.i + d + P.length) % P.length;
+      const L = { 1: ['Hitori|The last train home. Five of us on a seat for three.', 'Hitori|...Five?'], 3: ['Hitori|The beach one. Taped back together, crooked.', 'Hitori|I scanned it. Why did I scan it?'] }[st.i]; if (L && !u.said['ph' + st.i]) { u.said['ph' + st.i] = 1; say3(L) } }) } },
+  // a message she wrote to her friends and never sent
+  unsent(u, w, x, y, ww, hh) { R2(x, y, ww, hh, '#1f1f1f'); R2(x, y, ww, 16, '#2a2a2e'); ['File', 'Edit', 'View'].forEach((n, i) => T2(n, x + 8 + i * 30, y + 3, '#ddd', 8.5)); R2(x, y + 17, ww, hh - 31, '#272727');
+    ['to caroline. or steven. or uku. whoever reads this first', '', 'i dont remember what i said to you. caroline says i', 'screamed. steven says i hit his windows. i believe you.', 'i believe you and i dont remember it and thats the', 'scariest thing thats ever happened to me', '', 'im not angry at you. i was never angry at you. i think', 'i was angry at the walls', '', 'im sorry. im', ''].forEach((l, i) => T2(l, x + 8, y + 22 + i * 11, '#e8e8e8', 8.5, 400));
+    R2(x + 8 + TW2('im sorry. im', 8.5) + 2, y + 22 + 9 * 11, 1, 11, (u.t >> 4) % 2 ? '#e8e8e8' : '#272727'); R2(x, y + hh - 14, ww, 14, '#2a2a2e'); T2('Ln 10, Col 13   |   100%   |   UTF-8', x + 8, y + hh - 11, '#999', 7.5);
+    if (!u.said.unsent) { u.said.unsent = 1; say3(['Hitori|I wrote this. I don\'t remember writing this.', 'Hitori|...It just stops. "im sorry. im"']) } },
+  // the browser's history (from the ··· menu)
+  history(u, w, x, y, ww, hh) { R2(x, y, ww, hh, '#1a1a1e'); T2('History', x + 12, y + 8, '#fff', 12, 600); let yy = y + 30;
+    [['Today', [['quiet rooms - 10 hours of rain on a window', 'youtube.com']]], ['Yesterday', [['how long can you go without sleep', 'Search'], ['can people hear you through walls', 'Search'], ['why do i keep hearing whispering when im alone', 'Search']]],
+     ['Last week', [['why cant i remember someones name that i know', 'Search'], ['how to say sorry to friends when you dont remember what you did', 'Search'], ['stopped taking medication suddenly what happens', 'Search']]],
+     ['6 weeks ago', [['coach tickets one way - Book now', 'coachline.example'], ['cheap rooms near the station', 'Search']]]].forEach(([d, L]) => { T2(d, x + 12, yy, '#9aa', 8, 600); yy += 13; L.forEach(([t, src]) => { if (yy > y + hh - 14) return; ico(src == 'Search' ? 'search' : 'edge', x + 14, yy - 1, .7); T2(fit2(t, ww - 120, 8), x + 30, yy, '#ddd', 8); T2(src, x + ww - 12, yy, '#777', 7.5, 400, 'right'); yy += 12 }); yy += 4 });
+    if (!u.said.hist) { u.said.hist = 1; say3(['Hitori|...I don\'t remember searching any of this.', 'Hitori|"one way." Six weeks ago. Same as the ticket.']) } },
   explorer(u, w, x, y, ww, hh, B) {
-    const dir = w.dir || 'Home', FILES = { Home: [['Desktop', 'folder'], ['Documents', 'folder'], ['Downloads', 'folder'], ['Pictures', 'folder'], ['Music', 'folder'], ['Videos', 'folder']], Desktop: [['notes.txt', 'txt'], ['us.jpg', 'jpg']], Documents: [['notes.txt', 'txt'], ['school', 'folder']], Downloads: [['bus_ticket.pdf', 'pdf'], ['voicemail.m4a', 'audio']], Pictures: [['us.jpg', 'jpg'], ['Screenshots', 'folder']], Music: [], Videos: [], school: [], Screenshots: [], 'Recycle Bin': [['call_her.txt', 'txt']], 'This PC': [['Local Disk (C:)', 'pc']] };
+    const dir = w.dir || 'Home', FILES = { Home: [['Desktop', 'folder'], ['Documents', 'folder'], ['Downloads', 'folder'], ['Pictures', 'folder'], ['Music', 'folder'], ['Videos', 'folder']], Desktop: [['notes.txt', 'txt'], ['us.jpg', 'jpg']], Documents: [['notes.txt', 'txt'], ['unsent.txt', 'txt'], ['school', 'folder']], Downloads: [['bus_ticket.pdf', 'pdf'], ['voicemail.m4a', 'audio']], Pictures: [['us.jpg', 'jpg'], ['last_train.jpg', 'jpg'], ['mochi.jpg', 'jpg'], ['beach.jpg', 'jpg'], ...(P2.lastDrawing ? [['drawing.png', 'jpg']] : []), ['Screenshots', 'folder']], Music: [], Videos: [], school: [], Screenshots: [], 'Recycle Bin': [['call_her.txt', 'txt']], 'This PC': [['Local Disk (C:)', 'pc']] };
     R2(x, y, ww, hh, '#1c1c20'); R2(x, y, ww, 22, '#202024'); ['New', 'Cut', 'Copy', 'Paste', 'Sort', 'View'].forEach((n, i) => T2(n, x + 10 + i * 34, y + 6, '#bbb', 8));
     RR(x + 6, y + 24, ww - 12, 16, 4, '#2a2a30'); T2('›  ' + (dir == 'Home' ? 'Home' : 'hitori  ›  ' + dir), x + 14, y + 27, '#ddd', 8);
     R2(x, y + 44, 104, hh - 44, '#1a1a1e'); ['Home', 'Desktop', 'Downloads', 'Documents', 'Pictures', 'Music', 'Videos', 'This PC', 'Recycle Bin'].forEach((n, i) => { const by = y + 48 + i * 17, on = n == dir, hv = IN(u, x + 4, by, 96, 15); if (on || hv) RR(x + 4, by, 96, 15, 3, on ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.05)'); if (on) R2(x + 4, by + 4, 2, 7, '#4cc2ff'); ico(n == 'This PC' ? 'pc' : n == 'Recycle Bin' ? 'bin' : 'folder', x + 10, by, .8); T2(n, x + 26, by + 3, '#ddd', 8); B([x + 4, by, 96, 15], () => { w.dir = n }) });
@@ -295,6 +314,13 @@ const APPDRAW = {
     for (let i = 0; i < days; i++) { const c = (first + i) % 7, rr = Math.floor((first + i) / 7), bx = x + 10 + c * cw, by = y + 38 + rr * chh; R2(bx, by, cw - 1, chh - 1, '#26262c'); T2(String(i + 1), bx + 3, by + 2, i + 1 == d.getDate() ? '#4cc2ff' : '#ccc', 7.5, i + 1 == d.getDate() ? 700 : 400);
       if (i + 1 == ((d.getDate() + 3) % days) + 1 && false) { } if (i + 1 == Math.max(1, d.getDate() - 20)) { RR(bx + 2, by + 12, cw - 5, 9, 2, '#8a2a3a'); T2('she left', bx + 4, by + 13, '#fff', 6.5) } } },
   mail(u, w, x, y, ww, hh, B) { R2(x, y, ww, hh, '#1c1c20'); R2(x, y, ww, 20, '#0f6cbd'); T2('Outlook', x + 10, y + 5, '#fff', 9, 600); R2(x, y + 20, ww, 18, '#5a2020'); T2('(!)  We couldn\'t sync your account. You\'re offline.', x + 10, y + 24, '#ffd0d0', 8);
+    // the draft: send it to the heart contact (it waits in the outbox until there's a connection), or delete it
+    const st = P2.ch, bx = x + 116, by = y + 104;
+    if (st.mail == 1) { RR(bx, by, ww - 124, 18, 3, '#1e3a24'); T2('Moved to Outbox. It will send when you\'re back online.', bx + 6, by + 5, '#9fe0a8', 7.5) }
+    else if (st.mail == -1) { RR(bx, by - 44, ww - 124, 62, 3, '#1c1c20'); T2('Draft deleted.', bx + 6, by - 30, '#888', 8) }
+    else { const b1 = [bx, by, 70, 16], b2 = [bx + 76, by, 70, 16]; RR(...b1, 3, IN(u, ...b1) ? '#2a8ae0' : '#0f6cbd'); T2('Send to ♡', b1[0] + 35, by + 4, '#fff', 8, 600, 'center'); RR(...b2, 3, IN(u, ...b2) ? '#3a3a42' : '#2c2c32'); T2('Delete draft', b2[0] + 35, by + 4, '#ddd', 8, 400, 'center');
+      B(b1, () => { if (st.mail != null) return; st.mail = 1; p2ChSave(); beep(660, .05); say3(['Hitori|...I don\'t know who that is. The heart.', 'Hitori|But I wrote "please come home." So I must have meant someone.', '|A minute later it bounces back. Undeliverable: this address no longer exists.']) });
+      B(b2, () => { if (st.mail != null) return; st.mail = -1; p2ChSave(); say3(['Hitori|...Nobody\'s coming home. Who would I even send it to.']) }) }
     R2(x, y + 38, 100, hh - 38, '#18181c'); ['Inbox', 'Drafts', 'Sent Items', 'Deleted Items'].forEach((n, i) => T2(n + (i == 1 ? '   1' : ''), x + 10, y + 46 + i * 16, i == 0 ? '#fff' : '#bbb', 8.5)); T2('Drafts', x + 110, y + 44, '#fff', 10, 600);
     RR(x + 108, y + 60, ww - 116, 40, 3, '#26262c'); T2('To: (no recipient)', x + 116, y + 64, '#aaa', 7.5); T2('Subject: please come home', x + 116, y + 75, '#eee', 8.5, 600); T2('i dont know where you are. i dont know who to send this to. please', x + 116, y + 87, '#999', 7.5) },
   store(u, w, x, y, ww, hh, B) { offline(u, w, x, y, ww, hh, B, 'You\'ll need the internet for this.', 'It doesn\'t look like you\'re connected. Code: 0x800704CF') },
@@ -335,6 +361,7 @@ function drawEdge(u, w, x, y, ww, hh, B) {
   const fa = u.focus && u.focus.o == w && u.focus.k == 'addr'; T2(fa ? w.addr : url || 'Search or enter web address', x + 86, y + 7, fa || url ? '#ddd' : '#888', 8.5); if (fa && (u.t >> 4) % 2) R2(x + 86 + TW2(w.addr, 8.5) + 1, y + 6, 1, 11, '#ddd');
   B(ab, () => { w.addr = ''; u.focus = { o: w, k: 'addr', enter: () => edgeGo(u, w) } });
   T2('☆', x + ww - 38, y + 6, '#ccc', 10, 400, 'center'); T2('···', x + ww - 16, y + 4, '#ccc', 11, 400, 'center');
+  B([x + ww - 28, y + 2, 24, 20], () => { if (!u.wins.some(o => o.a == 'history')) openApp(u, 'history') });
   const px = x, py = y + 24, pw = ww, ph = hh - 24;
   if (w.page == 'newtab') { R2(px, py, pw, ph, '#1a1a1e'); RR(px + pw / 2 - 140, py + 60, 280, 24, 12, '#2c2c32'); ico('search', px + pw / 2 - 130, py + 64, .9); T2('Search the web', px + pw / 2 - 112, py + 67, '#999', 9); B([px + pw / 2 - 140, py + 60, 280, 24], () => { w.addr = ''; u.focus = { o: w, k: 'addr', enter: () => edgeGo(u, w) } });
     [['YouTube', 'yt'], ['Outlook', 'mail'], ['Store', 'store']].forEach(([n, ic], i) => { const bx = px + pw / 2 - 90 + i * 64, by = py + 110; RR(bx, by, 52, 52, 6, IN(u, bx, by, 52, 52) ? '#34343a' : '#2a2a30'); ico(ic, bx + 18, by + 10, 1); T2(n, bx + 26, by + 34, '#ccc', 7.5, 400, 'center'); B([bx, by, 52, 52], () => { if (ic == 'yt') { w.page = 'yt'; w.ytp = 'home' } else { w.page = 'cant'; w.addr = n.toLowerCase() + '.com' } }) }); return }
