@@ -8,9 +8,9 @@ function options(back) { menu({ title: 'Options', items: [{ x: () => 'Music  < '
 function slots(mode) {
   const back = mode == 'save' ? () => { sc = 'world' } : title;
   menu({ title: mode == 'new' ? 'Choose a save file' : mode == 'save' ? 'Save - pick a slot' : 'Load game', back, items: [0, 1, 2].map(i => ({ x: summ(i), d: mode == 'load' && !ST.get(SK(i)), f: () => {
-    if (mode == 'new') { newS(i); ST.set('syn_played', 1); played = true; enter('w_tree', null, [23, 15]); dayCard(1, 'Whispering Woods', () => { sc = 'world'; fade = 1 }) }
-    if (mode == 'load') { const d = JSON.parse(ST.get(SK(i))); if (d.p2) { p2Begin(d.p2); return }   // a part-two save (made on Hitori's computer)
-    S = Object.assign(newS(i), d); econFix(); S.slot = i; const sx = S.sx, sy = S.sy, a = S.a; enter(a, null); if (sx) { S.x = sx; S.y = sy } sc = 'world'; fade = 1 }
+    if (mode == 'new') { p1ChoiceReset(); newS(i); ST.set('syn_played', 1); played = true; enter('w_tree', null, [23, 15]); dayCard(1, 'Whispering Woods', () => { sc = 'world'; fade = 1 }) }
+    if (mode == 'load') { const d = JSON.parse(ST.get(SK(i))); if (d.p2) { if (d.ex && d.ex.p1) ST.set('syn_p1ch', JSON.stringify(d.ex.p1)); p2Begin(d.p2, d.ex); return }   // a part-two save (made on Hitori's computer)
+    S = Object.assign(newS(i), d); econFix(); ST.set('syn_p1ch', JSON.stringify(Object.fromEntries(['reassure', 'sorry', 'letgo'].filter(k => S.fl['p1_' + k]).map(k => [k, 1])))); S.slot = i; const sx = S.sx, sy = S.sy, a = S.a; enter(a, null); if (sx) { S.x = sx; S.y = sy } sc = 'world'; fade = 1 }
     if (mode == 'save') { S.slot = i; S.sx = S.x; S.sy = S.y; const c = S.backup; ST.set(SK(i), JSON.stringify(S)); ST.set('syn_played', 1); sc = 'world'; say('Game saved to slot ' + (i + 1) + '.'); beep(660, .2) }
   } })).concat([{ x: 'Back', f: back }]) });
 }

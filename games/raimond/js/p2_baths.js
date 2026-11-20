@@ -50,8 +50,20 @@ function sinkN(mb, s) {
   mb.box('cushion', s + .42, top, .08, s + .52, top + .03, .14, { col: [.9, .85, .3, 0] });
 }
 
+// the hall clock: a small pendulum clock on the hall wall between the bathroom door and the kitchen (it ticks: js/p2_sfx.js)
+const HALLCLOCK = [11.29, 1.95, 3.1];
+function hallClock(mb) {
+  if (!TX.clockface) { tex('clockface', 64, (g, s) => { g.fillStyle = '#3a2418'; g.fillRect(0, 0, s, s); g.fillStyle = '#d8ceb4'; g.beginPath(); g.arc(32, 32, 27, 0, 7); g.fill(); g.strokeStyle = '#2a2018'; g.lineWidth = 1.5; g.stroke();
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; g.fillStyle = '#2a2018'; g.fillRect(32 + Math.sin(a) * 22 - 1, 32 - Math.cos(a) * 22 - 1, i % 3 ? 2 : 3, i % 3 ? 2 : 3) }
+      const hand = (a, l, w) => { g.strokeStyle = '#141010'; g.lineWidth = w; g.beginPath(); g.moveTo(32, 32); g.lineTo(32 + Math.sin(a) * l, 32 - Math.cos(a) * l); g.stroke() }; hand(3.4 / 12 * 6.283, 13, 2.5); hand(.47 * 6.283, 20, 1.5); texNoiseOver(g, s, .05, 520) }) }
+  const [x, y, z] = HALLCLOCK, f = x - .09;   // the face side looks into the hall (-x)
+  mb.box('walnut', f, y - .5, z - .17, x + .05, y + .3, z + .17, { bev: .012 }); mb.box('walnut', f - .015, y + .3, z - .19, x + .05, y + .34, z + .19, { bev: .008 });
+  mb.decal('clockface', f - .002, y + .12, z, .3, .3, 'w');
+  mb.box('darkglass', f - .004, y - .45, z - .09, f, y - .06, z + .09); H3.pendAt = [f - .008, y - .08, z];   // the pendulum swings behind its glass (posed each frame in js/p2_sfx.js, in time with the ticking)
+  const pm = new MB(); pm.box('brass', -.002, -.3, -.004, .002, 0, .004); pm.box('brass', -.004, -.33, -.035, .004, -.27, .035, { bev: .01 }); H3.extra.pendulum = pm.build(); H3.extra.pendulum.M = M4.tr(...H3.pendAt);
+}
 function bathsN(mb, mirrorN) {
-  bathTex();
+  bathTex(); hallClock(mb);
   const CAP = 1.25;
   // tile on a wall: face 'n'/'s' (a wall along x at z) or 'e'/'w' (along z at x); a..b is the run; up to height h
   const tile = (face, w, a, b, y0, h = CAP, cap = true, off = .016) => {

@@ -142,12 +142,12 @@ function ask(lines, opts, cb) { D(lines, () => { choose(opts, cb); const l = lin
 Object.assign(ITEMDEF, {
   luckychip: { n: 'Lucky Chip', t: 'charm', luck: 3, d: 'A gold casino chip. On the back, someone scratched: "FOR THE NEXT ONE."' },
   bunny: { n: 'Stuffed Bunny', t: 'key', d: 'A prize from the casino counter. One ear is sewn on with blue thread.' },
-  ticket: { n: 'Ticket No. 5', t: 'key', d: 'A paper ticket, very old. "No. 5 - PLEASE WAIT TO BE CALLED."' },
+  ticket: { n: 'Ticket No. 6', t: 'key', d: 'A paper ticket, very old. "No. 6 - PLEASE WAIT TO BE CALLED."' },
   shaker: { n: 'Cocktail Shaker', t: 'weapon', atk: 6, luck: 1, d: 'Vic\'s spare. Rattles like a maraca when you swing it.' },
   neonpipe: { n: 'Neon Tube', t: 'weapon', atk: 8, d: 'A hollow pink tube that still glows. Hana says it is "basically a sword."' }
 });
 ['luckychip', 'bunny', 'ticket', 'shaker', 'neonpipe'].forEach(k => { ITIMG[k] = { spr: loadImg('assets/items/' + k + '.png'), por: loadImg('assets/items/' + k + '_portrait.png') } });
-Object.assign(LORE, { ticket: 'Mina gave me ticket number five. She said everyone gets called eventually.', station: 'The trains at the station all leave at six. None of them has ever left.' });
+Object.assign(LORE, { ticket: 'Mina gave me ticket number six. She said everyone gets called eventually.', station: 'The trains at the station all leave at six. None of them has ever left.' });
 Object.assign(ND, { gus: { n: 'Lucky Gus' }, pearl: { n: 'Pearl' }, mina: { n: 'Mina' }, vic: { n: 'Vic' }, hana: { n: 'Hana' }, sal: { n: 'Sal' }, dot: { n: 'Dot' }, rex: { n: 'Rex' }, fay: { n: 'Fay' } });
 const EMOS = ['neutral', 'happy', 'laugh', 'sad', 'angry', 'shock', 'scared', 'worried', 'blush', 'dark', 'smug'];
 ['gus', 'pearl', 'mina', 'vic', 'hana', 'sal', 'dot', 'rex', 'fay'].forEach(id => { const c = ND[id]; c.key = 'npc_' + id; loadSheet(c.key); LK[c.n] = c; for (const emo of EMOS) PORTRAITS[c.key + ':' + emo] = loadImg('assets/portraits/' + c.key + '_' + PFILE(emo, c.key) + '.png') });
@@ -175,7 +175,7 @@ Object.assign(NPC_DLG, {
     : F_('gchip') && !F_('gus_done') ? N('gus', ['Lucky Gus:shock|You FOUND it! Under the sofa? Of course it was under the sofa.', 'Lucky Gus:happy|Here, forty Chips. Don\'t spend them all on the same machine. Spend them on different machines.'], () => { flag('gus_done'); addChips(40) })
     : N('gus', ['Lucky Gus:happy|Machine nine is hot tonight. Machine nine is always hot. There is no machine nine.']),
   mina: () => !F_('mina1') ? N('mina', ['Mina:sad|...They won\'t let me in. I\'m too small.', 'Mina:sad|There\'s a bunny on the prize shelf. A white one. I\'ve wanted it forever.', 'Mina:neutral|...Could you win it for me? Pearl gives it out for a hundred Chips.'], () => flag('mina1'))
-    : S.items.includes('bunny') && !F_('mina_done') ? N('mina', ['Mina:shock|...The bunny!', 'Mina:happy|Thank you thank you thank you.', 'Mina:neutral|Here. I\'ve been holding this for ages. I think it\'s yours.', '|She gives you a paper ticket. It says No. 5. And a little wristwatch, stopped at six.'], () => { flag('mina_done'); S.items = S.items.filter(i => i != 'bunny'); giveItem('ticket'); giveItem('watch'); addLore('ticket') })
+    : S.items.includes('bunny') && !F_('mina_done') ? N('mina', ['Mina:shock|...The bunny!', 'Mina:happy|Thank you thank you thank you.', 'Mina:neutral|Here. I\'ve been holding this for ages. I think it\'s yours.', '|She gives you a paper ticket. It says No. 6. And a little wristwatch, stopped at six.'], () => { flag('mina_done'); S.items = S.items.filter(i => i != 'bunny'); giveItem('ticket'); giveItem('watch'); addLore('ticket') })
     : F_('mina_done') ? N('mina', ['Mina:happy|Bunny says hi.', 'Mina:neutral|They call the numbers in order, you know. You\'re after four.']) : N('mina', ['Mina:sad|A hundred Chips is a lot. Pearl\'s counter is inside, on the left.']),
   vic: () => !F_('vic1') ? N('vic', ['Vic:neutral|Evening. Juice? Juice. Everything here is juice. Don\'t tell anyone.', 'Vic:sad|My three regulars didn\'t show tonight. Kix, Sal and Dot. Never happened before.', 'Vic:neutral|Kix will be at the arcade. Sal waits at the station. Dot sits up on the rooftops, behind this street.', 'Vic:neutral|Tell them it\'s last call. They\'ll come.'], () => flag('vic1'))
     : F_('reg3') && !F_('vic_done') ? N('vic', ['Vic:happy|They\'re all coming. Good. Good.', 'Vic:neutral|Here. My spare shaker, and something for the slots. Last call is my favourite call.'], () => { flag('vic_done'); giveItem('shaker'); addChips(30) })

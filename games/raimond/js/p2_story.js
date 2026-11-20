@@ -15,28 +15,36 @@ function say3(lines, cb, o = {}) {
   if (cb) P2.subs.push({ cb });
 }
 function subsTick() {
+  if (P2.ui && P2.ui.k == 'menu') return;
   while (P2.subs.length && P2.subs[0].cb) { const c = P2.subs.shift().cb; c() }
   const s = P2.subs[0]; if (!s) return;
   if (s.t == 0 && s.voice) SFX3.voice(s.text, s.f0 || (s.voice == 'deep' ? 58 : 150), s.voice == 'deep' ? .55 : .35, s.voice == 'deep', !!s.phone);
   s.t++;
-  if (s.t > s.dur || (s.t > 12 && ok() && (!P2.ui || P2.ui.k == 'phone' || P2.ui.k == 'pol' || P2.ui.k == 'bj'))) { P2.subs.shift(); while (P2.subs.length && P2.subs[0].cb) { const c = P2.subs.shift().cb; c() } }
+  // the line types itself out like in Part One (it can't be skipped); once it's all there, Z moves on, or it moves on by itself after a while
+  const c0 = s.c | 0; s.c = Math.min(s.text.length, (s.c || 0) + (s.crazy ? 1.1 : .8));
+  if ((s.c | 0) > c0 && s.text[c0] && s.text[c0] != ' ' && (c0 & 1) && s.who && s.who != '~') beep(s.who == 'Hitori' ? 330 : s.who == 'Hikari' || s.who == '???' ? 300 : 240, .015, .22);
+  const typed = s.c >= s.text.length; if (typed && !s.at) s.at = s.t;
+  const canZ = !P2.ui || P2.ui.k == 'phone' || P2.ui.k == 'pol' || P2.ui.k == 'bj';
+  if (typed && (s.t - s.at > Math.max(70, s.dur - s.at) || (s.t - s.at > 6 && ok() && canZ))) { P2.subs.shift(); while (P2.subs.length && P2.subs[0].cb) { const c = P2.subs.shift().cb; c() } }
 }
 const subsBusy = () => P2.subs.some(s => !s.cb);
-function drawSubs() {
-  const s = P2.subs[0]; if (!s || s.cb) return; const f = s.crazy ? CRAZY : P2.font, sz = s.crazy ? 8.5 : 7.5;
+function drawSubs() {   // the subtitles (as before), but the line types itself out like a Part One text box
+  const s = P2.subs[0]; if (!s || s.cb) return; const f = s.crazy ? CRAZY : P2.font, K = typeof P2O != 'undefined' ? P2O.subs : 1, sz = 8.6 * K, lh = 11.5 * K;
   let who = s.who == 'Hikari' ? P2.sisName : s.who;
   const narr = !who, wh = who == '~';
-  const side = P2.ui && P2.ui.k == 'phone', bj = P2.ui && P2.ui.k == 'bj', cx = side ? 222 : 160, bw = side ? 170 : 270;
-  const lines = pwrap(s.text, bw, sz, f), y0 = (side ? 100 : bj ? 128 : 168) - lines.length * 10;
-  const a = Math.min(1, s.t / 6), jit = s.crazy ? () => (Math.random() - .5) * .8 : () => 0;
+  const side = P2.ui && P2.ui.k == 'phone', bj = P2.ui && P2.ui.k == 'bj', cx = side ? 222 : 160, bw = side ? 170 : 280;
+  const lines = pwrap(s.text, bw * Math.min(1.15, K), sz, f), y0 = (side ? 100 : bj ? 128 : 168) - lines.length * lh;
+  const a = Math.min(1, s.t / 6), jit = () => 0;
   X.globalAlpha = a;
-  if (who && !wh) { const nm = who.toUpperCase(); ptxt(nm, cx, y0 - 10, who == 'Hitori' ? '#e8d0d8' : who == '???' ? '#c8c8c8' : '#d8e0e8', 'center', 6, P2.font) }
-  lines.forEach((l, i) => ptxt(l, cx + jit(), y0 + i * 10 + jit(), narr ? '#b8b8b8' : wh ? '#8a7a80' : s.crazy ? '#f0e0e4' : '#fff', 'center', sz, f));
+  if (who && !wh) { const nm = who.toUpperCase(); ptxt(nm, cx, y0 - 11 * K, who == 'Hitori' ? '#e8d0d8' : who == '???' ? '#c8c8c8' : '#d8e0e8', 'center', 6.6 * K, P2.font) }
+  let left = s.c | 0;
+  // each line sits where the whole line will end up, so the words don't slide about while they type
+  lines.forEach((l, i) => { if (left <= 0) return; const x0 = cx - ptw(l, sz, f) / 2; ptxt(l.slice(0, left), x0 + jit(), y0 + i * lh + jit(), narr ? '#b8b8b8' : wh ? '#8a7a80' : s.crazy ? '#f0e0e4' : '#fff', 'left', sz, f); left -= l.length + 1 });
   X.globalAlpha = 1;
 }
 // ---------------------------------------------------------------- the scene being shown
 function houseScene() {
-  const d = P2.day, dark = d == 2, sis = d == 3;
+  const d = P2.day, dark = d == 3, sis = d == 4;
   const L = [];
   const add = (x, y, z, c, r, flick) => { const q = x > 30 ? [x, z] : LM(x, z, y); L.push({ p: [q[0], y, q[1]], c, r: x > 30 ? r : r * 1.3, flick }) };   // positions on the old plan, moved onto the new one
   const fl = dark ? () => (Math.random() < .04 ? .2 : 1) * (.85 + Math.sin(P2.t * .13) * .15) : null;
@@ -71,11 +79,11 @@ function p2Begin(stage = 'day1') {
   p2Stage(stage);
 }
 function p2Stage(stage) {
-  P2.stage = stage; ST2s('stage', stage); P2.ui = null; P2.cut = null; P2.subs = []; ME.vm = null; P2.vmExtra = null; P2.pose = null; P2.hideBody = 0; P2.seated = 0; P2.wantLock = true;
+  P2.stage = stage; ST2s('stage', stage); P2.ui = null; P2.cut = null; P2.subs = []; ME.vm = null; P2.vmExtra = null; P2.vmSh = null; P2.pose = null; P2.hideBody = 0; P2.seated = 0; P2.wantLock = true;
   if (stage == 'day1') { P2.day = 1; P2.font = FONT; P2.name = 'Hitori'; P2.scene = 'house'; AMB3.start(false); P2.amb = { foot: 1200, whisper: 1800 }; startWake() }
   if (stage == 'dealer') { P2.day = 1.5; P2.font = FONT; AMB3.stop(); startDealer() }
-  if (stage == 'day2') { P2.day = 2; P2.font = FONT; P2.scene = 'house'; P2.f = { thrown: 1, vomited: 1, history: 1, polaroids: 1 }; H3.extra.phonebroken.vis = true; H3.extra.phone.vis = false; AMB3.start(true); P2.amb = { foot: 300, whisper: 260 }; P2.d2 = { rooms: {}, t: 0 }; eyesInit(); startDay2() }
-  if (stage == 'sister') { P2.day = 3; P2.font = FONT; P2.scene = 'house'; P2.f = { thrown: 1 }; H3.extra.phonebroken.vis = true; H3.extra.phone.vis = false; AMB3.start(false); P2.amb = { foot: 0, whisper: 0 }; startSister() }
+  if (stage == 'day3') { P2.day = 3; P2.font = FONT; P2.scene = 'house'; P2.f = { thrown: 0, vomited: 1, history: 1, polaroids: 1 }; H3.extra.phonebroken.vis = false; H3.extra.phone.vis = true; /* the phone gets broken today, if she throws it */ AMB3.start(true); P2.amb = { foot: 600, whisper: 620 }; P2.d2 = { rooms: {}, t: 0 }; eyesInit(); startDay2() }
+  if (stage == 'sister') { P2.day = 4; P2.font = FONT; P2.scene = 'house'; P2.f = { thrown: 1 }; H3.extra.phonebroken.vis = true; H3.extra.phone.vis = false; AMB3.start(false); P2.amb = { foot: 0, whisper: 0 }; startSister() }
 }
 // where the desk chair and the fridge ended up on the new plan (cutscenes work relative to them)
 const [CHX, CHZ] = LM(10.95, 7.25, 3), [FRX, FRZ] = LM(11.58, 8.75, 0);
@@ -83,7 +91,7 @@ const [CHX, CHZ] = LM(10.95, 7.25, 3), [FRX, FRZ] = LM(11.58, 8.75, 0);
 function startWake() {
   [PL3.x, PL3.z] = LM(10.15, 8.85, 3); PL3.y = 3; CAM3.yaw = -Math.PI / 2; CAM3.pitch = 0; P2.blink = 1; P2.hideBody = 1;
   P2.cut = { k: 'wake', t: 0 };
-  say3(['|...', 'Hitori|...Huh.', 'Hitori|How long was I asleep?', 'Hitori|It feels like... days. Weeks.', 'Hitori|I was somewhere else. There were trees. A beach. A city full of lights.', 'Hitori|...It\'s already going.', 'Hitori|Where is everyone?'], () => { P2.cut = null; P2.hideBody = 0; P2.objective = 'Where is everyone? My phone...' });
+  say3(['|...', 'Hitori|...Huh.', 'Hitori|How long was I asleep?', 'Hitori|It feels like... days. Weeks.', 'Hitori|I was somewhere else. There were trees. A beach. A city full of lights.', 'Hitori|...It\'s already going.', ...(p1Ch().letgo ? ['Hitori|I was looking for someone. At the very end, I let them go.'] : []), 'Hitori|Where is everyone?'], () => { P2.cut = null; P2.hideBody = 0; P2.objective = 'Where is everyone? My phone...' });
 }
 function wakeCut(c) {   // lying in bed looking at the ceiling, eyes opening, then sitting up and standing
   const t = ++c.t, q = clamp((t - 200) / 120, 0, 1), e = q * q * (3 - 2 * q);
@@ -95,41 +103,41 @@ function wakeCut(c) {   // lying in bed looking at the ceiling, eyes opening, th
 }
 const P2S = {
   frontLocked() { return null },
-  hitoriDoorLocked() { if (P2.day == 3 && !P2.f.found) { P2S.found(); return 'skip' } return null },
-  sisterLocked() { return P2.day == 2 ? 'Hitori|Locked. ...It\'s never locked.' : null },
-  look(id) { const L = (P2.day == 2 ? LOOK2[id] : P2.day == 3 ? LOOK3[id] : null) || LOOK1[id]; if (!L) return; say3(typeof L == 'function' ? L() : L) },
+  hitoriDoorLocked() { if (P2.day == 4 && !P2.f.found) { P2S.found(); return 'skip' } return null },
+  sisterLocked() { return P2.day == 3 ? 'Hitori|Locked. ...It\'s never locked.' : null },
+  look(id) { const L = (P2.day == 3 ? LOOK2[id] : P2.day == 4 ? LOOK3[id] : null) || LOOK1[id]; if (!L) return; say3(typeof L == 'function' ? L() : L) },
   pills() {
-    if (P2.day == 3) return say3(['Hikari|Her pills.', '|The bottle is full. The seal has never been broken.', 'Hikari|...Oh, Hitori.', 'Hikari|You stopped. When I left, you just... stopped.']);
-    if (P2.day == 2) return say3(['|The bottle is still full.', 'Hitori|He said I should take them.', 'Hitori|~Not with them watching me. Not with them WATCHING me.']);
+    if (P2.day == 4) return say3(['Hikari|Her pills.', '|The bottle is full. The seal has never been broken.', 'Hikari|...Oh, Hitori.', 'Hikari|You stopped. When I left, you just... stopped.']);
+    if (P2.day == 3) return say3(['|The bottle is still full.', 'Hitori|He said I should take them.', 'Hitori|...Not right now. I feel like someone\'s watching.']);
     if (P2.f.pills) return say3(['|Still full.']);
     P2.f.pills = 1; say3(['|A bottle of pills on the nightstand. Her name is on the label. Take one tablet daily.', '|The seal has never been broken.', 'Hitori|...I\'m supposed to be taking these. I think.', 'Hitori|I don\'t remember the last time I did.']);
   },
   phone() {
     if (P2.f.thrown) return;
     H3.extra.phone.vis = false; P2.ui = { k: 'phone', mode: 'contacts', sel: 0, t: 0, who: 'h', lift: 0 }; p2Unlock(); SFX3.click();
-    if (!P2.f.phoneSeen) { P2.f.phoneSeen = 1; say3(['Hitori|No messages. Nothing. Not one.', 'Hitori|...Why can\'t I read their names?']) }
+    if (!P2.f.phoneSeen) { P2.f.phoneSeen = 1; say3(['Hitori|No messages. Nothing. Not one.', 'Hitori|...Mom. Steven. Caroline. Uku.', 'Hitori|And a heart. Who\'s the heart?']) }
   },
   fridge() {
-    if (P2.day == 3) return fridgeOpen(['Hikari|...It\'s almost empty.', 'Hikari|What have you been eating?']);
-    if (P2.day == 2) return fridgeOpen(['|Inside, everything has gone grey and soft. Something in the back is breathing.', 'Hitori|~Nope. No. Close it. CLOSE IT.']);
+    if (P2.day == 4) return fridgeOpen(['Hikari|...It\'s almost empty.', 'Hikari|What have you been eating?']);
+    if (P2.day == 3) return fridgeOpen(['|Everything inside has gone grey and soft. It smells like weeks.', 'Hitori|...I really need to clean this out.']);
     if (!P2.f.thrown) return say3(['|The fridge hums. There\'s a photo of the cat stuck to the door, and a yellow note.', 'Hitori|I should find my phone first.']);
     if (P2.f.vomited) return fridgeOpen(['|Takeout boxes. Something that used to be milk.', 'Hitori|...I\'m not hungry anymore.']);
     fridgeOpen(['|Cold rice. Half a tin of something. Takeout that\'s gone hard at the edges.', 'Hitori|...That\'ll do.'], () => { P2.cut = { k: 'eat', t: 0 } }, true);
   },
   computer() {
-    if (P2.day == 2) return say3(['|The screen shows your bedroom from behind. The chair in the picture is empty.', '|In the picture, the door is open. Behind you, the door is open.', 'Hitori|~...Turn it off. TURN IT OFF.']);
-    if (P2.day == 3) return say3(['Hikari|Her computer\'s still on.', 'Hikari|...I can\'t look at that right now.']);
+    if (P2.day == 3) return say3(['|For a second the black screen shows the room behind her, and the door looks open.', '|She turns around. It\'s shut.', 'Hitori|...Not today. I can\'t look at screens today.']);
+    if (P2.day == 4) return say3(['Hikari|Her computer\'s still on.', 'Hikari|...I can\'t look at that right now.']);
     if (!P2.f.vomited) return say3(['Hitori|...Later. I feel like I\'m going to throw up.']);
     P2.cut = { k: 'sit', t: 0 };
   },
   polaroids() {
-    if (P2.day == 2) return say3(['|All the photographs have turned to face the wardrobe door.', 'Hitori|~I didn\'t do that. I didn\'t— who did that? WHO DID THAT?']);
-    if (P2.day == 3) return say3(['Hikari|She kept them. All of them.', 'Hikari|...That one\'s me. She kept the one of me.']);
+    if (P2.day == 3) return say3(['|Some of the photographs have been turned face-down.', 'Hitori|...I must have done that last night. I don\'t remember.']);
+    if (P2.day == 4) return say3(['Hikari|She kept them. All of them.', 'Hikari|...That one\'s me. She kept the one of me.']);
     P2.ui = { k: 'pol', i: 0, t: 0, seen: {}, open: 0 }; p2Unlock(); pageTurn();
   },
   bed() {
-    if (P2.day == 2) return say3(['Hitori|No. If I sleep he\'ll be there. Or worse, he won\'t.']);
-    if (P2.day == 3) return say3(['Hikari|...']);
+    if (P2.day == 3) return say3(['Hitori|No. If I sleep he\'ll be there. Or worse, he won\'t.']);
+    if (P2.day == 4) return say3(['Hikari|...']);
     if (!P2.f.polaroids) return say3(['Hitori|I just woke up. I don\'t want to lie back down yet.']);
     P2.cut = { k: 'sleep', t: 0 }; P2.hideBody = 1;
     say3(['Hitori|...I\'m so tired.', 'Hitori|Please. Just let me sleep without dreaming.']);
@@ -152,18 +160,18 @@ const LOOK1 = {
   parents: ['|Mom and Dad\'s room. The bed is made. Dust sheets over the chairs.', 'Hitori|They\'re away. They\'re always away.'],
 };
 const LOOK2 = {
-  hallmirror: ['|Your reflection moves a second after you do.', 'Hitori|~Stop it. Stop it, stop it.'],
-  tv: ['|The static is whispering your name, very quietly, over and over.'],
-  mirror: ['|Your reflection is a beat behind you. When you stop, it keeps going for a moment.', 'Hitori|~Fuck. Fuck, fuck, fuck.'],
-  familyphoto: ['|Every face in the photo has been scratched out except yours.'],
-  sisroom: ['|The mattress has a dent in it, like someone was just lying there.', 'Hitori|~Who\'s here? WHO\'S HERE?'],
-  parents: ['|The dust sheets are shaped like people sitting very still.', 'Hitori|...I\'m not looking. I\'m not looking.'],
+  hallmirror: ['|For a second her reflection seems a beat slow.', 'Hitori|...I haven\'t slept. That\'s all that is.'],
+  tv: ['|Static. For a moment it sounds like somebody saying her name.', 'Hitori|...It\'s just static.'],
+  mirror: ['|Dark circles. She looks away before she has to look properly.', 'Hitori|...Not today.'],
+  familyphoto: ['|In this light the other faces in the photo are hard to make out. Only hers is clear.'],
+  sisroom: ['|The mattress has a dent in it, like someone was just lying there.', 'Hitori|...Hello? ...No. Nobody.'],
+  parents: ['|The dust sheets over the chairs look like people sitting very still.', 'Hitori|...They\'re chairs. They\'re just chairs.'],
   brokenphone: ['|The broken screen lights up for a moment. 37 missed calls. Then it\'s dark again.'],
   games: ['|The controller is warm.'],
-  ksink: ['|The tap is running. You didn\'t turn it on.'],
-  landline: ['|The unplugged phone is ringing.', '|When you lift it, there is only breathing.'],
-  backdoor: ['|Something on the other side is scratching, slowly, at the height of your face.'],
-  frontdoor: ['|There\'s breathing on the other side of the door. Slow. Patient.'],
+  ksink: ['|The tap is dripping.'],
+  landline: ['|The unplugged phone. For a second she was sure it rang.'],
+  backdoor: ['|A scratching sound from the other side. A branch, probably.', 'Hitori|...Probably.'],
+  frontdoor: ['|She stands at the door for a long time, listening. Nothing.', 'Hitori|...Nobody\'s out there. I know nobody\'s out there.'],
 };
 const LOOK3 = {
   hallmirror: ['Hikari|...I look like her.'],
@@ -212,7 +220,7 @@ function eatCut(c) {
   if (t == 470) { CAM3.shake = 0; ME.vm = null; say3(['|She makes it to the sink. Barely.', 'Hitori|...', 'Hitori|What\'s wrong with me.']) }
   if (t > 470 && t < 620) { CAM3.pitch += (-.2 - CAM3.pitch) * .03; CAM3.roll *= .97 }
   if (t == 640) { SFX3.walker(.6); SFX3.whisper(.35, 2.2, -.7) }
-  if (t == 700) { CAM3.yaw = -Math.PI / 2; say3(['Hitori|...Hello?', 'Hitori|Is someone in here?', '|Nothing. The fridge hums.', 'Hitori|~I heard you. I fucking HEARD you.', 'Hitori|...', 'Hitori|Okay. Okay. Something normal. My computer.'], () => { P2.cut = null; CAM3.roll = 0; PL3.x = CAM3.x; PL3.z = CAM3.z; P2.f.vomited = 1; P2.objective = 'My computer. Something normal.'; P2.amb = { foot: 700, whisper: 900 } }) }
+  if (t == 700) { CAM3.yaw = -Math.PI / 2; say3(['Hitori|...Hello?', 'Hitori|Is someone in here?', '|Nothing. The fridge hums.', 'Hitori|...I know I heard something.', 'Hitori|...', 'Hitori|Okay. Okay. Something normal. My computer.'], () => { P2.cut = null; CAM3.roll = 0; PL3.x = CAM3.x; PL3.z = CAM3.z; P2.f.vomited = 1; P2.objective = 'My computer. Something normal.'; P2.amb = { foot: 700, whisper: 900 } }) }
 }
 // ---------------------------------------------------------------- the computer: pull the chair out, sit down, hands on the keyboard
 function sitCut(c) {
@@ -233,31 +241,37 @@ function sitCut(c) {
   if (t > 178 && t <= 200) { CAM3.fov = 1.15 - ease3((t - 178) / 22) * .35 }
   if (t == 200) { P2.seated = 1; P2.ui = pcOpen(); P2.cut = null; CAM3.fov = 1.15; p2Unlock() }
 }
-function standCut(c) {   // closing the computer: push back, stand up
-  const t = ++c.t, Ch = H3.chair, seat = [CHX + .02, 3 + 1.12, CHZ, -HP, -.3], stand = [CHX - .7, 3 + GIRL.eye, CHZ, -HP, -.05];
+function standCut(c) {   // closing the computer: push back, stand up, roll the chair back in under the desk
+  const t = ++c.t, Ch = H3.chair, seat = [CHX + .02, 3 + 1.12, CHZ, -HP, -.3], stand = [CHX - .85, 3 + GIRL.eye, CHZ, -HP, -.05];
   const q = ease3(t / 50); CAM3.x = seat[0] + (stand[0] - seat[0]) * q; CAM3.y = seat[1] + (stand[1] - seat[1]) * q; CAM3.z = seat[2] + (stand[2] - seat[2]) * q; CAM3.yaw = -HP; CAM3.pitch = seat[4] + (stand[4] - seat[4]) * q;
-  if (t < 30) { Ch.x = CHX - .3 * ease3(t / 30); P2.pose = { sit: 1, x: Ch.x, z: Ch.z, y: 3, yaw: -HP } } else P2.pose = null;
+  if (t < 30) { Ch.x = CHX - .3 * ease3(t / 30); P2.pose = { sit: 1, x: Ch.x, z: Ch.z, y: 3, yaw: -HP } } else { P2.pose = null; Ch.x = CHX - .3 + .3 * ease3(Math.min(1, (t - 30) / 20)) }
   if (t == 2) noiseBurst(.5, 300, .5, .35);
-  if (t == 50) { PL3.x = stand[0]; PL3.z = stand[2]; PL3.y = 3; P2.cut = null; P2.seated = 0; P2.wantLock = true; if (c.after) c.after() }
+  if (t == 50) { Ch.x = CHX; PL3.x = stand[0]; PL3.z = stand[2]; PL3.y = 3; P2.cut = null; P2.seated = 0; P2.wantLock = true; p2Unstick(); if (c.after) c.after() }
+}
+// if a cut leaves you standing inside furniture, step out to the nearest free spot
+function p2Unstick() {
+  const r = .26, inside = (x, z) => H3.solids.some(b => !b.off && x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r && PL3.y + .3 > b.y0 && PL3.y + .3 < b.y1);
+  if (!inside(PL3.x, PL3.z)) return;
+  for (let d = .1; d < 1.6; d += .1) for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, x = PL3.x + Math.cos(a) * d, z = PL3.z + Math.sin(a) * d; if (!inside(x, z)) { PL3.x = x; PL3.z = z; return } }
 }
 function sleepCut(c) {
   const t = ++c.t;
   if (t < 140) { { const q2 = LM(9.2, 9.3, 3); CAM3.x += (q2[0] - CAM3.x) * .04; CAM3.y += (3.75 - CAM3.y) * .04; CAM3.z += (q2[1] - CAM3.z) * .04 } CAM3.pitch += (1.3 - CAM3.pitch) * .04 }
   if (t > 260) P2.blink = Math.min(1, (t - 260) / 60);
-  if (t == 380) { AMB3.stop(); p2Stage('dealer') }
+  if (t == 380) { AMB3.stop(); p2Stage(c.next || 'dealer') }
 }
 // ---------------------------------------------------------------- the phone (held in her hand; the screen is drawn onto it)
 const PHONEBOOK = [{ n: 'Caroline', k: 1 }, { n: 'Mom', k: -1 }, { n: 'Steven', k: 0 }, { n: 'Uku', k: 3 }, { n: '♡', k: -2 }];
-// what the friends say: they're not angry that she misses someone. They're hurt and frightened by what she did
-// to them in the weeks after her sister left and she stopped taking her medication. She doesn't remember any of it.
+// what the friends say on day 1 is what her mind turns them into: people who look down on her and want her gone.
+// None of it is what they would really say (their real side comes out in Hikari's calls at the end).
 const CALLS = {
-  Caroline: [['f', '...Hitori?'], ['h', 'Caroline! Hey. I think I slept for a really long time, and—'], ['f', 'You called me eleven times on Tuesday night. Do you know that?'], ['f', 'You left me a voicemail screaming that I took her. That I was hiding her from you.'], ['h', 'Took WHO? Hiding who?'], ['f', '...You really don\'t remember.'], ['f', 'Please take your meds, Hitori. Please. I can\'t do this again. I have to go.']],
-  Steven: [['f', '...'], ['h', 'Steven? Hello?'], ['f', 'Why are you calling me.'], ['h', 'Because nobody\'s here. Where is everyone?'], ['f', 'You came to my house at three in the morning. You were hitting the windows. You wouldn\'t stop.'], ['f', 'My mom almost called the police, Hitori.'], ['h', '...What? No. I wouldn\'t—'], ['f', 'Don\'t call this number again.']],
-  Uku: [['f', 'Yo, who\'s— ...oh. It\'s you.'], ['h', 'Uku, what\'s going on? Why is everyone being weird?'], ['f', 'Weird. Right.'], ['f', 'You told me I was "one of them." That I was listening to you through the walls.'], ['f', 'You threw a glass at my head, man.'], ['h', 'I don\'t remember any of that, I swear—'], ['f', 'Yeah. You never do. I\'m done.']],
+  Caroline: [['f', '...Oh. It\'s you.'], ['h', 'Caroline! Hey. I think I slept for a really long time, and—'], ['f', 'And you thought I\'d care?'], ['f', 'Honestly, Hitori? I don\'t even know why I was ever friends with you.'], ['h', 'What? Caroline, what did I—'], ['f', 'I only talked to you because you were #####\'s sister. Everybody did.'], ['f', 'Without her you\'re just... there. Bye.']],
+  Steven: [['f', '...'], ['h', 'Steven? Hello?'], ['f', 'Why are you calling me.'], ['h', 'Because nobody\'s here. Where is everyone?'], ['f', 'Where they want to be. Somewhere you aren\'t.'], ['f', 'We have a group chat without you in it, you know. We always did.'], ['h', '...That\'s not funny.'], ['f', 'It\'s a little funny. Don\'t call this number again.']],
+  Uku: [['f', 'Yo, who\'s— ...oh. It\'s you.'], ['h', 'Uku, what\'s going on? Why is everyone being weird?'], ['f', 'Nobody\'s being weird. We just stopped pretending.'], ['f', 'You know what everyone says? That it should\'ve been you who left. Not her.'], ['h', '...Why would you say that to me?'], ['f', 'Because you already think it. I\'m just saying it out loud.'], ['f', 'Honestly, nobody would notice if you were gone too. Bye.']],
   Mom: [['x', 'The person you are calling is not available. Please try again later.']],
   '♡': [['x', 'The number you have dialled is no longer in service.'], ['h', '...Who is that? Why do I have a heart in my contacts?']],
 };
-const TEXTS = ['stop calling us', 'you said we were in the walls. you said we TOOK her', 'caroline cried for two days after what you said to her', 'nobody is whispering about you hitori', 'take your fucking meds', 'seriously, go fuck yourself', 'dont come to my house again'];
+const TEXTS = ['stop calling us', 'nobody wants to hear from you', 'we only put up with you because of her', 'you know everyone laughs about you right', 'why are you even still here', 'nobody would notice if you were gone', 'dont come to my house again'];
 // the sister's calls, at the end: the same three, who now answer properly
 const CALLS3 = {
   Steven: [['f', '...Hello?'], ['h', 'Steven. It\'s me.'], ['f', '...Hikari?', 'name'], ['f', 'Holy shit. You\'re back? Where the hell did you go?'], ['h', 'Hitori\'s... Hitori is...'], ['f', 'What? What happened?'], ['h', 'Why was she alone? Why didn\'t anyone tell me?'], ['f', 'After you left she stopped taking her pills. She stopped sleeping. She stopped... being her.'], ['f', 'She said we were whispering about her. That we were in the walls. That we\'d done something to you.'], ['f', 'She screamed at Uku. She said things to Caroline I can\'t even repeat. We tried. We fucking tried.'], ['f', '...Then we just stopped picking up.']],
@@ -269,7 +283,7 @@ function blurName(n) {   // the name, squashed into a few blocks so it can't be 
   const g = a.getContext('2d'); g.clearRect(0, 0, 40, 8); g.fillStyle = '#ddd'; g.font = 'bold 7px monospace'; g.fillText(n, 1, 7);
   const h = b.getContext('2d'); h.clearRect(0, 0, 9, 2); h.imageSmoothingEnabled = true; h.drawImage(a, 0, 0, 40, 8, 0, 0, 9, 2);
   g.clearRect(0, 0, 40, 8); g.imageSmoothingEnabled = false; g.drawImage(b, 0, 0, 9, 2, 0, 0, 40, 8); return a }
-function phoneList() { return P2.day == 3 ? [{ n: 'Caroline', k: 1 }, { n: 'Steven', k: 0 }, { n: 'Uku', k: 3 }] : PHONEBOOK }
+function phoneList() { return P2.day == 4 ? [{ n: 'Caroline', k: 1 }, { n: 'Steven', k: 0 }, { n: 'Uku', k: 3 }] : PHONEBOOK }
 // the screen is 60 x 131 units; PH maps them onto the phone in the 3D view
 const PH = { w: 60, h: 131, ok: false };
 function phoneMap(cs) {
@@ -290,11 +304,13 @@ function phAvatar(x, y, r2, face) {
   X.restore();
 }
 function phoneUpdate(u) {
-  u.t++; const list = phoneList(), sis = P2.day == 3;
+  u.t++; const list = phoneList(), sis = P2.day == 4;
   if (u.closing) { u.lift -= .075; if (u.lift <= 0) { P2.ui = null; H3.extra.phone.vis = true; P2.wantLock = true } P2MOUSE.click = 0; P2MOUSE.moved = 0; return }   // lowering it, then it's away
   u.lift = Math.min(1, u.lift + .06);
   const m = PH.ok ? phLocal(P2MOUSE.x, P2MOUSE.y) : [-99, -99]; u.mouse = m;
-  if (u.mode == 'contacts') {
+  if (u.mode == 'thread') p2ThreadUpdate(u, m);
+  else if (u.mode == 'contacts' && !sis && p2TabsUpdate(u, m)) { }
+  else if (u.mode == 'contacts') {
     if (up()) u.sel = (u.sel + list.length - 1) % list.length; if (dn()) u.sel = (u.sel + 1) % list.length;
     let clicked = -1; list.forEach((c, i) => { const y = 24 + i * 19; if (m[0] > 2 && m[0] < 58 && m[1] > y - 2 && m[1] < y + 17) { if (P2MOUSE.moved) u.sel = i; if (P2MOUSE.click) clicked = i } });
     if ((ok() || clicked >= 0) && !subsBusy() && u.lift >= 1) { if (clicked >= 0) u.sel = clicked; startCall(u, list[u.sel]) }
@@ -302,32 +318,37 @@ function phoneUpdate(u) {
   } else if (u.mode == 'call') {
     u.ct++;
     if (u.ct == 1) SFX3.ring(1);
-    if (u.ct == 150) { SFX3.click(); u.connected = 1; const scr = (sis ? CALLS3 : CALLS)[u.c.n] || [];
+    if (u.ct == 150 && u.c.n == 'Unknown') { SFX3.click(); u.connected = 1; p2VoicemailCall(u) }
+    else if (u.ct == 150) { SFX3.click(); u.connected = 1; const scr = p2CallScript(sis, u.c.n);
       scr.forEach(([w, t, tag]) => { say3([(w == 'h' ? (sis ? 'Hikari' : 'Hitori') : w == 'x' ? '' : u.c.n) + '|' + t], null, { voice: w == 'f' ? 'friend' : null, phone: true, f0: u.c.n == 'Steven' ? 115 : u.c.n == 'Uku' ? 130 : 210 }); if (tag == 'name') P2.subs.push({ cb: () => { P2.sisName = SISTER } }) });
       P2.subs.push({ cb: () => { SFX3.hangup(); u.ended = u.ct } });
     }
+    if (u.ended && u.ct > u.ended + 60 && u.c.n == 'Unknown') { u.ended = 0; u.closing = 1; return }
     if (u.ended && u.ct > u.ended + 60) { u.mode = 'contacts'; u.ended = 0; u.connected = 0; (u.called = u.called || {})[u.c.n] = 1; afterCall(u) }
   } else if (u.mode == 'texts') {
     u.tt++; if (u.tt % 55 == 0 && u.shown < TEXTS.length) { u.shown++; SFX3.ping(); CAM3.shake = 1 }
     if (u.tt % 55 == 8) CAM3.shake = 0;
-    if (u.shown >= TEXTS.length && !u.said) { u.said = 1; say3(['Hitori|~What... what the fuck is this?', 'Hitori|In the walls? I never— I wouldn\'t—', 'Hitori|~Took WHO? Who did I say you TOOK?!', 'Hitori|~WHAT DID I DO?!'], () => { u.mode = 'throw'; u.th = 0 }) }
+    if (u.shown >= TEXTS.length && !u.said) { u.said = 1; say3(['Hitori|...What is this?', 'Hitori|We were friends. We were friends for years.', 'Hitori|...Weren\'t we?'], () => p2ThrowChoice(u)) }
   } else if (u.mode == 'throw') phoneThrow(u);
   P2MOUSE.click = 0; P2MOUSE.moved = 0;
 }
 function startCall(u, c) { u.mode = 'call'; u.c = c; u.ct = 0; u.connected = 0; u.ended = 0; SFX3.click() }
 function afterCall(u) {
-  const sis = P2.day == 3, need = ['Caroline', 'Steven', 'Uku'];
+  if (P2.day == 2 || P2.day == 3) return;   // only day 1 (the messages) and her sister's calls lead anywhere
+  const sis = P2.day == 4, need = ['Caroline', 'Steven', 'Uku'];
   if (need.every(n => u.called[n])) {
-    if (!sis && !P2.f.texting) { P2.f.texting = 1; say3(['Hitori|...That isn\'t me. I wouldn\'t do any of that.', 'Hitori|...Would I?'], () => { u.mode = 'texts'; u.tt = 0; u.shown = 0 }) }
-    if (sis && !u.done) { u.done = 1; say3(['Hikari|...She needed me.', 'Hikari|And I left her here.', 'Hikari|~I left her all alone.'], () => { P2.ui = null; P2.cut = { k: 'panout', t: 0 } }) }
-  } else if (!sis && u.c.n == 'Caroline' && !u.r1) { u.r1 = 1; say3(['Hitori|...Hiding who? I don\'t understand.']) }
+    if (!sis && !P2.f.texting) { P2.f.texting = 1; say3(['Hitori|...They didn\'t sound like themselves.', 'Hitori|Or maybe that\'s just what they sound like when I\'m not in the room.'], () => { u.mode = 'texts'; u.tt = 0; u.shown = 0 }) }
+    if (sis && !u.done) { u.done = 1; say3([...p2SisterRegrets(), 'Hikari|...She needed me.', 'Hikari|And I left her here.', 'Hikari|~I left her all alone.'], () => { P2.ui = null; P2.cut = { k: 'panout', t: 0 } }) }
+  } else if (!sis && u.c.n == 'Caroline' && !u.r1) { u.r1 = 1; say3(['Hitori|...Whose sister? I don\'t have a...']) }
 }
 // the throw: the arm winds back and whips forward, the phone flies across the room and breaks against whatever it hits
+// the phone you hold (made the first time it's needed: on day 3 you can throw it before ever having held it that day)
+function phoneHandObj() { return H3.extra.phoneHand || (H3.extra.phoneHand = single(m => MOD.phone(m))) }
 function phoneThrow(u) {
   const t = ++u.th;
   if (t == 1) SFX3.whisper(.2, 1);
   if (t == 26) { const L = phoneVM(u.t, [.02, .1, -.2]), W = M4.mul(camWorld(), L), p = M4.pt(W, [0, 0, 0]), f = camFwd();
-    P2.thrown = { p, v: [f[0] * 9, f[1] * 9 + 1.2, f[2] * 9], spin: 0, obj: { groups: H3.extra.phoneHand.groups, M: W, vis: true } }; noiseBurst(.15, 900, 1.5, .4) }
+    P2.thrown = { p, v: [f[0] * 9, f[1] * 9 + 1.2, f[2] * 9], spin: 0, obj: { groups: phoneHandObj().groups, M: W, vis: true } }; noiseBurst(.15, 900, 1.5, .4) }
   const T = P2.thrown;
   if (T && !T.hit) { const dt = 1 / 60; for (let k = 0; k < 4; k++) { const np = V3.add(T.p, V3.mul(T.v, dt / 4)); T.v[1] -= 9.8 * dt / 4;
       const floor = houseFloor(np[0], np[2], PL3.y) + .02, wall = H3.solids.find(b => !b.off && np[0] > b.x0 && np[0] < b.x1 && np[2] > b.z0 && np[2] < b.z1 && np[1] > b.y0 && np[1] < b.y1);
@@ -336,33 +357,34 @@ function phoneThrow(u) {
         H3.brokenInter.box = [bp[0] - .18, bp[1] - .05, bp[2] - .18, bp[0] + .18, bp[1] + .2, bp[2] + .18]; P2.thrown = null; u.hitAt = t; break }
       T.p = np } if (T.obj) { T.spin += .5; T.obj.M = M4.chain(M4.tr(...T.p), M4.ry(T.spin), M4.rx(T.spin * .7)) } }
   if (u.hitAt && t > u.hitAt) CAM3.shake *= .9;
-  if (u.hitAt && t == u.hitAt + 50) { P2.ui = null; CAM3.shake = 0; ME.vm = null; P2.wantLock = true; say3(['Hitori|...', 'Hitori|Fuck.', 'Hitori|...Fuck.', 'Hitori|I need to eat something. I can\'t think.'], () => { P2.objective = 'Eat something.' }) }
+  if (u.hitAt && t == u.hitAt + 50) { P2.ui = null; CAM3.shake = 0; ME.vm = null; P2.wantLock = true; say3(['Hitori|...', 'Hitori|...There. Now nobody can call.', '|On the floor, the broken screen lights up anyway. 37 missed calls.']) }
 }
 // hand + phone, every frame the phone is out
 function phoneVMFrame(u) {
   if (u.mode == 'throw') { const t = u.th, wind = ease3(t / 18), fwd = ease3((t - 18) / 8), after = ease3((t - 26) / 20);
     let off = [.14 * wind, .09 * wind - .25 * after, .1 * wind], rot = wind * .9;
     if (t > 18) { off = V3.lerp([.14, .09, .1], [.0, .05, -.22], fwd); rot = .9 - fwd * 1.6 } if (t > 26) off = V3.add([.0, .05, -.22], [.05 * after, -.35 * after, .1 * after]);
-    if (t <= 26) { const L = M4.mul(phoneVM(u.t, off), M4.rx(rot)), W = M4.mul(camWorld(), L), loc = p => M4.pt(L, p); ME.vm = { R: vmArm(1, loc([.05, -.022, .095]), M4.dir(L, [-.55, 0, -.85]), M4.dir(L, [0, 1, 0]), .72, [1, -1, .2]) }; P2.vmExtra = [posed(H3.extra.phoneHand, W)] }
+    if (t <= 26) { const L = M4.mul(phoneVM(u.t, off), M4.rx(rot)), W = M4.mul(camWorld(), L), loc = p => M4.pt(L, p); ME.vm = { R: vmArm(1, loc([.05, -.022, .095]), M4.dir(L, [-.55, 0, -.85]), M4.dir(L, [0, 1, 0]), .72, [1, -1, .2]) }; P2.vmExtra = [posed(phoneHandObj(), W)] }
     else { P2.vmExtra = null; ME.vm = after < 1 ? { R: vmArm(1, V3.add([.05, -.1, -.35], [.08 * after, -.3 * after, .15 * after]), [0, .4, -1], [-1, 0, 0], .2) } : null }
     PH.ok = false; return }
   const A = phoneAnim(u), H = phoneHeld(u.t, A.off, A); P2.vmExtra = [H.objs[0]]; ME.vm = { R: H.objs.slice(1) }; phoneMap(A.rise >= 1 && !u.closing ? H.corners : null);
 }
 function drawPhone(u) {
-  if (!PH.ok) return; const sis = P2.day == 3, list = phoneList(), W2 = PH.w, H2 = PH.h, m = u.mouse || [-9, -9];
+  if (!PH.ok) return; const sis = P2.day == 4, list = phoneList(), W2 = PH.w, H2 = PH.h, m = u.mouse || [-9, -9];
   X.save(); phR(0, 0, W2, H2, '#0c0c12');
   const d = new Date(); phTxt(d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'), 4, 2.5, '#bbb', 4.5); phR(W2 - 12, 3.5, 8, 3.5, '#555'); phR(W2 - 12, 3.5, sis ? 2.5 : 6, 3.5, sis ? '#c84040' : '#8a8'); phR(W2 - 4, 4.5, 1, 1.5, '#555');
+  if (u.mode == 'thread') p2DrawThread(u, m);
   if (u.mode == 'contacts' || u.mode == 'throw') {
-    phTxt('Contacts', 4, 10, '#fff', 7.5);
-    list.forEach((c, i) => { const y = 24 + i * 19, on = u.sel == i, hov = m[0] > 2 && m[0] < 58 && m[1] > y - 2 && m[1] < y + 17; if (on || hov) phRR(2, y - 2, W2 - 4, 18, 3, on ? '#26262f' : '#1a1a22');
+    if (sis) phTxt('Contacts', 4, 10, '#fff', 7.5); else p2DrawTabs(u, m);
+    if ((u.tab == 'msgs' || u.tab == 'notes') && !sis) p2DrawThreads(u, m); else list.forEach((c, i) => { const y = 24 + i * 19, on = u.sel == i, hov = m[0] > 2 && m[0] < 58 && m[1] > y - 2 && m[1] < y + 17; if (on || hov) phRR(2, y - 2, W2 - 4, 18, 3, on ? '#26262f' : '#1a1a22');
       phAvatar(10, y + 7, 6, sis && c.k >= 0 ? ['steven', 'caroline', 'hitori', 'uku'][c.k] : null);
-      if (sis) phTxt(c.n, 20, y + 3.5, '#eee', 6); else { phT(); X.imageSmoothingEnabled = false; X.drawImage(blurName(c.n), 20, y + 3.5, 26, 6) }
+      phTxt(c.n, 20, y + 3.5, c.n == '♡' ? '#e8a8b8' : '#eee', 6);
       if (u.called && u.called[c.n]) phTxt('called', W2 - 4, y + 4.5, '#777', 4, 'right') });
     if (!sis) { phTxt('click or Z: call', W2 / 2, H2 - 22, '#666', 4.2, 'center'); const hv = m[1] > 116 && m[1] < 131; phRR(W2 / 2 - 14, H2 - 14, 28, 9, 4, hv ? '#3a3a46' : '#24242c'); phTxt('put down', W2 / 2, H2 - 12.2, '#aaa', 4.2, 'center') }
   }
   if (u.mode == 'call') {
     phAvatar(W2 / 2, 36, 15, sis && u.c.k >= 0 ? ['steven', 'caroline', 'hitori', 'uku'][u.c.k] : null);
-    if (sis) phTxt(u.c.n, W2 / 2, 56, '#fff', 7.5, 'center'); else { phT(); X.imageSmoothingEnabled = false; X.drawImage(blurName(u.c.n), W2 / 2 - 20, 56, 40, 9) }
+    phTxt(u.c.n == 'Unknown' ? 'Unknown number' : u.c.n, W2 / 2, 56, u.c.n == '♡' ? '#e8a8b8' : '#fff', u.c.n == 'Unknown' ? 6 : 7.5, 'center');
     const s = u.connected ? Math.floor((u.ct - 150) / 60) : 0;
     phTxt(u.ended ? 'Call ended' : u.connected ? '0:' + String(s).padStart(2, '0') : 'Calling' + '...'.slice(0, (u.ct >> 4) % 4), W2 / 2, 70, '#aaa', 5.5, 'center');
     for (let i = 0; i < 6; i++) { phC(14 + (i % 3) * 16, 86 + Math.floor(i / 3) * 12, 4.5, '#1e1e26') }
@@ -378,7 +400,7 @@ function drawPhone(u) {
 function pwrapLocal(s, w, sz) { X.save(); X.setTransform(1, 0, 0, 1, 0, 0); X.font = sz + 'px ' + FONT; const out = []; let l = ''; for (const word of s.split(' ')) { const t = l ? l + ' ' + word : word; if (X.measureText(t).width > w && l) { out.push(l); l = word } else l = t } if (l) out.push(l); X.restore(); return out }
 // ---------------------------------------------------------------- the polaroids, up close: Z shows you one, Z again and she talks about it
 const POLS = [
-  { k: 'pol1', lines: ['Hitori|That\'s me. Holding the camera out, like always.', 'Hitori|And... who is that? Next to me. Doing the peace sign.', 'Hitori|Somebody scribbled over her face. Hard. The pen went through.', 'Hitori|~Did I do that? I KNOW her. Why can\'t I—'] },
+  { k: 'pol1', lines: ['Hitori|That\'s me. Holding the camera out, like always.', 'Hitori|And... who is that? Next to me. Doing the peace sign.', 'Hitori|Somebody scribbled over her face. Hard. The pen went through.', 'Hitori|...Did I do that? Why would I do that?'] },
   { k: 'pol3', lines: ['Hitori|The last train home. Steven. Uku. Caroline. Me.', 'Hitori|...And one more. Laughing, with her head on my shoulder.', 'Hitori|There were only ever four of us. Weren\'t there?'] },
   { k: 'pol2', lines: ['Hitori|Mochi. Asleep on my lap again.', 'Hitori|She always picked me. I never had the heart to get up.', 'Hitori|...Where is Mochi?'] },
   { k: 'pol4', lines: ['Hitori|The beach. I was so small.', 'Hitori|Somebody tore it in half. And then somebody taped it back together.', 'Hitori|...Crooked. Like they were crying when they did it.'] },
@@ -408,13 +430,13 @@ const SHADOWS = [{ x: 6.8, y: 3, z: .8 }, { x: 4.6, y: 0, z: 1.2 }, { x: 10.2, y
 function eyesInit() {
   EYES.length = 0; const R = rng(77);
   const walls = [[0, 'e', 0, 4, 10], [12, 'w', 0, 0, 10], [10, 'n', 0, 0, 12], [0, 's', 0, 4, 12], [0, 'e', 3, 0, 10], [12, 'w', 3, 0, 10], [10, 'n', 3, 0, 12], [0, 's', 3, 0, 12], [8.6, 'w', 3, 0, 10], [8.6, 'e', 3, 0, 10], [4, 'e', 0, 0, 10], [8.6, 'w', 0, 0, 10], [8.6, 'e', 0, 3.5, 10], [5, 'n', 3, 8.6, 12], [5, 's', 3, 8.6, 12]];
-  for (let i = 0; i < 70; i++) { const [c, f, fy, a, b] = walls[i % walls.length], u = a + .3 + R() * (b - a - .6), y = fy + .9 + R() * 1.6, off = f == 'e' ? .07 : f == 'w' ? -.07 : f == 's' ? .07 : -.07;
-    const p = L3P(f == 'e' || f == 'w' ? [c + off, y, u] : [u, y, c + off]); EYES.push({ p, f, born: i * 2.2, s: .7 + R() * .6, blink: R() * 300 | 0 }) }
+  for (let i = 0; i < 26; i++) { const [c, f, fy, a, b] = walls[i % walls.length], u = a + .3 + R() * (b - a - .6), y = fy + .9 + R() * 1.6, off = f == 'e' ? .07 : f == 'w' ? -.07 : f == 's' ? .07 : -.07;
+    const p = L3P(f == 'e' || f == 'w' ? [c + off, y, u] : [u, y, c + off]); EYES.push({ p, f, born: 20 + i * 7, s: .7 + R() * .6, blink: R() * 300 | 0 }) }
   SHADOWS.forEach(s => { s.gone = 0; s.seen = 0; if (!s.mapped) { [s.x, s.z] = LM(s.x, s.z, s.y); s.mapped = 1 } });
 }
 function dynObj(o, mb) { if (!o) o = { groups: [], M: M4ID, vis: true }; for (const g of o.groups) gl.deleteBuffer(g.b); const b = mb.build(); o.groups = b.groups; return o }
 function eyesTick() {
-  if (P2.day != 2) return; const mb = new MB(), t = P2.d2.t / 60, px = CAM3.x, py = CAM3.y, pz = CAM3.z;
+  if (P2.day != 3) return; const mb = new MB(), t = P2.d2.t / 60, px = CAM3.x, py = CAM3.y, pz = CAM3.z;
   for (const e of EYES) { if (t < e.born) continue; const [x, y, z] = e.p; if (Math.abs(y - py) > 2.6) continue; const d = Math.hypot(x - px, z - pz); if (d > 9) continue;
     e.blink--; if (e.blink < 0) e.blink = 200 + Math.random() * 400; const bl = e.blink < 8 ? .15 : 1, w = .5 * e.s, h = .21 * e.s * bl;
     const hw = w / 2, hh = h / 2;
@@ -446,22 +468,23 @@ function day2Tick() {
   const d = P2.d2; d.t++;
   const rm = roomAt(PL3.x, PL3.z, PL3.y); if (!d.rooms[rm]) { d.rooms[rm] = d.t; if (Object.keys(d.rooms).length > 1) roomLine(rm) }
   if (d.t % 240 == 0) SFX3.heart(.3 + Math.min(.5, d.t / 9000));
-  if (Math.random() < .004) P2.floating.push({ s: WHISPERS[Math.random() * WHISPERS.length | 0], x: 30 + Math.random() * 240, y: 20 + Math.random() * 100, t: 0 });
+  if (Math.random() < .0015) P2.floating.push({ s: WHISPERS[Math.random() * WHISPERS.length | 0], x: 30 + Math.random() * 240, y: 20 + Math.random() * 100, t: 0 });
   if (!d.climax && !P2.cut && !subsBusy() && (Object.keys(d.rooms).length >= 6 || d.t > 60 * 210)) { d.climax = 1; P2.cut = { k: 'climax', t: 0 } }
 }
 function roomLine(rm) {
-  const L = { kitchen: ['Hitori|~Stop looking at me.'], hall: ['Hitori|~Who keeps walking around down here?!'], living: ['Hitori|...The TV\'s on. I didn\'t turn the TV on.'], upstairs: ['Hitori|~There\'s more of them. There\'s more of them every time.'], ubath: ['Hitori|Don\'t look in the mirror. Don\'t look in the mirror.'], parents: ['Hitori|Mom? ...Dad?'], corridor: ['Hitori|It\'s so cold down here.'], bath0: ['Hitori|...I can hear breathing. That\'s me. That\'s just me.'], sister: [], storage: [], hitori: ['Hitori|~My room. My room is safe. My room is safe. My room is safe.'] }[rm];
+  const L = { kitchen: ['Hitori|...It feels like someone\'s looking at me in here.'], hall: ['Hitori|...I keep hearing footsteps. It\'s the neighbours. It has to be.'], living: ['Hitori|...The TV\'s on. I didn\'t turn the TV on.'], upstairs: ['Hitori|...Just get to my room.'], ubath: ['Hitori|Don\'t look in the mirror. Don\'t look in the mirror.'], parents: ['Hitori|Mom? ...Dad?'], corridor: ['Hitori|It\'s so cold down here.'], bath0: ['Hitori|...I can hear breathing. That\'s me. That\'s just me.'], sister: [], storage: [], hitori: ['Hitori|My room. Okay. Breathe.'] }[rm];
   if (L && L.length && !subsBusy()) say3(L);
 }
 function climaxCut(c) {
-  const t = ++c.t;
+  if (c.hold) return; const t = ++c.t;
   if (t == 1) { for (const e of EYES) e.born = 0; P2.amb = { foot: 60, whisper: 40 }; SFX3.sting() }
   if (t < 260 && t % 30 == 0) SFX3.heart(1); if (t < 260 && t % 12 == 0) SFX3.whisper(.4, 1, (Math.random() - .5) * 2);
   if (t > 20 && t < 260) { const q = (t - 20) / 240; ME.vm = { L: vmArm(-1, [-.3 + q * .03, -.02 + q * .04, -.14], [.2, .95, .1], [1, 0, .2], .5, [-1, -.3, .4]), R: vmArm(1, [.3 - q * .03, -.02 + q * .04, -.14], [-.2, .95, .1], [-1, 0, .2], .5) } }   // her hands come up over her ears
-  if (t == 20) say3(['Hitori|~Stop.', 'Hitori|~Stop looking at me. Stop talking about me. STOP.', 'Hitori|~STOP IT!']);
+  if (t == 20) say3(['Hitori|Stop.', 'Hitori|Please, just stop talking about me.', 'Hitori|...Please.']);
   if (t > 20 && t < 260) CAM3.shake = 2 + t / 60;
   if (t == 260) { CAM3.shake = 0; ME.vm = null; P2.amb = { foot: 0, whisper: 0 }; AMB3.stop(); P2.silent = 1; for (const e of EYES) e.born = 1e9 }
   if (t == 330) say3(['Hitori|...', 'Hitori|...It\'s quiet.', 'Hitori|I just want it to stay quiet.']);
+  if (t == 560 && !c.asked && p2Hope() >= HOPE_NEEDED) { c.asked = 1; c.hold = 1; p2FinalCall(c) }
   if (t == 700) P2.fadeTo = 1;
   if (t == 900) { P2.silent = 0; P2.ui = { k: 'card', t: 0, text: 'Some time later.', next: () => p2Stage('sister') } }
 }
@@ -486,7 +509,7 @@ function foundCut(c) {   // she steps into the doorway; there it is, in the midd
   PL3.x = c.from[0] + (door[0] - c.from[0]) * q; PL3.z = c.from[1] + (door[1] - c.from[1]) * q;
   const target = Math.atan2(-(HANG[0] - PL3.x), -(HANG[1] - PL3.z)), tp = Math.atan2(4.3 - (PL3.y + GIRL.eye), Math.hypot(HANG[0] - PL3.x, HANG[1] - PL3.z));
   if (t < 300) { CAM3.yaw = c.from[2] + Math.atan2(Math.sin(target - c.from[2]), Math.cos(target - c.from[2])) * ease3(t / 60); CAM3.pitch += (tp - CAM3.pitch) * .08 }
-  if (t == 40) SFX3.sting(); if (t > 40 && t < 260 && t % 26 == 0) SFX3.heart(1);
+  if (t == 40) (typeof SFXN != 'undefined' ? SFXN.censor() : SFX3.sting()); if (t > 40 && t < 260 && t % 26 == 0) SFX3.heart(1);   // the censor box: the bleak sound from the Sound Lab
   if (t == 70) say3(['Hikari|Hitori?', 'Hikari|...', 'Hikari|~No.', 'Hikari|~No, no, no, no, no—']);
   if (t > 300 && t < 340) CAM3.shake = 8;
   if (t == 320) SFX3.retch();
@@ -518,24 +541,25 @@ function drawCard3(u) {
     if (u.t > 60) ptxt('Z: continue', W / 2, 150, (u.t >> 4) % 2 ? '#ddd' : '#888', 'center', 7, FONT, null); X.globalAlpha = 1 }
   if (u.k == 'card') { const a = clamp(Math.min(u.t / 60, (260 - u.t) / 60), 0, 1); X.globalAlpha = a; ptxt(u.text, W / 2, 84, '#ccc', 'center', 9, f, null); X.globalAlpha = 1 }
   if (u.k == 'end') { const a1 = clamp((u.t - 120) / 90, 0, 1), a2 = clamp((u.t - 300) / 90, 0, 1), a3 = clamp((u.t - 480) / 90, 0, 1);
-    X.globalAlpha = a1; ptxt('S Y N C H R O N I C I T Y', W / 2, 66, '#fff', 'center', 9, FONT, null); X.globalAlpha = a2; ptxt('the end', W / 2, 84, '#888', 'center', 7, FONT, null);
+    X.globalAlpha = a1; ptxt('S Y N C H R O N I C I T Y', W / 2, 66, '#fff', 'center', 9, FONT, null); X.globalAlpha = a2; ptxt('the end', W / 2, 84, '#888', 'center', 7, FONT, null); if (u.sub) ptxt(u.sub, W / 2, 96, '#777', 'center', 6, FONT, null);
     X.globalAlpha = a3; ptxt('If you are struggling, or someone you know is, please talk to someone you trust,', W / 2, 140, '#666', 'center', 5.5, FONT, null); ptxt('or reach a crisis line near you: findahelpline.com', W / 2, 148, '#666', 'center', 5.5, FONT, null); X.globalAlpha = 1 }
 }
 // ---------------------------------------------------------------- the frame
 P2.floating = [];
 function p2AmbTick() {   // someone walking about, someone whispering: faint on day 1, everywhere on day 2
   if (P2.silent || !P2.amb) return;
-  if (P2.amb.foot && --P2.amb.footT <= 0 || isNaN(P2.amb.footT)) { P2.amb.footT = P2.amb.foot * (.6 + Math.random() * .8); if (P2.amb.foot && P2.t > 300) SFX3.walker(P2.day == 2 ? .35 : .12) }
-  if (P2.amb.whisper && --P2.amb.whT <= 0 || isNaN(P2.amb.whT)) { P2.amb.whT = P2.amb.whisper * (.6 + Math.random() * .8); if (P2.amb.whisper && P2.t > 400) SFX3.whisper(P2.day == 2 ? .22 : .06, 1.2 + Math.random() * 1.4) }
+  if (P2.amb.foot && --P2.amb.footT <= 0 || isNaN(P2.amb.footT)) { P2.amb.footT = P2.amb.foot * (.6 + Math.random() * .8); if (P2.amb.foot && P2.t > 300) SFX3.walker(P2.day == 3 ? .35 : .12) }
+  if (P2.amb.whisper && --P2.amb.whT <= 0 || isNaN(P2.amb.whT)) { P2.amb.whT = P2.amb.whisper * (.6 + Math.random() * .8); if (P2.amb.whisper && P2.t > 400) SFX3.whisper(P2.day == 3 ? .22 : .06, 1.2 + Math.random() * 1.4) }
 }
 const CUTS = { wake: wakeCut, wake2: wakeCut, eat: eatCut, sleep: sleepCut, climax: climaxCut, found: foundCut, panout: panoutCut, dealer: (c) => dealerCut(c), fridge: fridgeCut, sit: sitCut, stand: standCut };
+const VMKEEP = { fridge: 1, eat: 1, sit: 1, climax: 1, found: 1, reach: 1, read: 1, pill: 1, dishes: 1, wake: 1, wake2: 1 };   // cuts that pose the first-person hands themselves
 XSC.p2 = function () {
   const dt = 1 / 60; P2.t++; C.style.cursor = 'none';
   if (P2.t % 6 == 0 && TX.tvstatic) { texNoise(TX.tvstatic.g, 64, '#404040', .9, P2.t, 2); TX.tvstatic.dirty = 1 }
   const u = P2.ui, card = u && (u.k == 'warn' || u.k == 'card' || u.k == 'end');
   if (u) { if (u.k == 'phone') phoneUpdate(u); else if (u.k == 'pol') polUpdate(u); else if (u.k == 'pc') pcUpdate(u); else if (u.k == 'bj') bjUpdate(u); else cardUpdate(u) }
   else if (P2.cut) { CUTS[P2.cut.k](P2.cut); P2MOUSE.dx = P2MOUSE.dy = 0 }
-  if (P2.ui && P2.ui.k == 'phone') phoneVMFrame(P2.ui); else if (!(P2.cut && (P2.cut.k == 'fridge' || P2.cut.k == 'eat' || P2.cut.k == 'sit' || P2.cut.k == 'climax' || P2.cut.k == 'found'))) { ME.vm = null; P2.vmExtra = null }
+  if (P2.ui && P2.ui.k == 'phone') phoneVMFrame(P2.ui); else if (!(P2.cut && VMKEEP[P2.cut.k])) { ME.vm = null; P2.vmExtra = null }
   if (P2.seated && !P2.cut) P2.pose = { sit: 1, lean: -.22, x: H3.chair.x, z: H3.chair.z, y: 3, yaw: -HP, hands: { L: { at: [CHX + .41, 3.79, CHZ - .12], fing: [1, -.25, .05], palm: [0, -1, 0], curl: .25 }, R: { at: [CHX + .45, 3.79, CHZ + .43], fing: [1, -.25, 0], palm: [0, -1, 0], curl: .4 } } };
   else if (!P2.cut) P2.pose = null;
   if (P2.scene == 'house' && !card) {
@@ -543,7 +567,7 @@ XSC.p2 = function () {
     // you can always look around while someone is talking; only cut-scenes and open screens hold the camera
     if (!P2.ui && !P2.cut) { p2Walk(scn, dt, true); P2.target = subsBusy() ? null : lookAt3(scn); if (P2.target && (ok() || P2MOUSE.click)) { P2MOUSE.click = 0; const it = P2.target; it.on() } }
     else P2.target = null;
-    doorTick(dt); if (P2.day == 2) { eyesTick(); if (!P2.cut) day2Tick() } if (P2.day == 3) sisterTick();
+    doorTick(dt); if (P2.day == 3) { eyesTick(); if (!P2.cut) day2Tick() } if (P2.day == 4) sisterTick();
     p2AmbTick();
     render3D(scn);
   } else if (P2.scene == 'dealer' && !card) { dealerFrame(dt) }
@@ -553,10 +577,10 @@ XSC.p2 = function () {
   if (!card) {
     X.drawImage(GLC, 0, 0, W, H);
     for (let i = 0; i < 90; i++) { X.globalAlpha = .05 + Math.random() * .05; r(Math.random() * W | 0, Math.random() * H | 0, 1, 1, Math.random() < .5 ? '#fff' : '#000') } X.globalAlpha = 1;
-    const vg = X.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, 200); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, P2.day == 2 ? 'rgba(30,0,4,.85)' : 'rgba(0,0,0,.7)'); X.fillStyle = vg; X.fillRect(0, 0, W, H);
+    const vg = X.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, 200); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, P2.day == 3 ? 'rgba(30,0,4,.85)' : 'rgba(0,0,0,.7)'); X.fillStyle = vg; X.fillRect(0, 0, W, H);
     if (P2.flash > 0) { X.globalAlpha = P2.flash / 12; r(0, 0, W, H, '#fff'); X.globalAlpha = 1; P2.flash-- }
     if (P2.blink > 0) { const h = P2.blink * H / 2; r(0, 0, W, h, '#000'); r(0, H - h, W, h, '#000') }
-    if (P2.day == 2) { P2.floating = P2.floating.filter(w => ++w.t < 150); for (const w of P2.floating) { X.globalAlpha = Math.min(1, w.t / 30, (150 - w.t) / 30) * .6; ptxt(w.s, w.x, w.y, '#9a6a74', 'left', 7, CRAZY, null) } X.globalAlpha = 1 }
+    if (P2.day == 3) { P2.floating = P2.floating.filter(w => ++w.t < 150); for (const w of P2.floating) { X.globalAlpha = Math.min(1, w.t / 30, (150 - w.t) / 30) * .6; ptxt(w.s, w.x, w.y, '#9a6a74', 'left', 7, CRAZY, null) } X.globalAlpha = 1 }
     if (!u && !P2.cut && P2.scene == 'house') { r(W / 2 - .5, H / 2 - .5, 1, 1, P2.target ? '#fff' : 'rgba(255,255,255,.4)'); if (P2.target && !subsBusy()) ptxt('Z  ' + P2.target.name, W / 2, H / 2 + 6, '#ddd', 'center', 6, P2.font) }
     if (P2.objective && !u && !P2.cut) ptxt(P2.objective, 8, 6, 'rgba(200,200,200,.55)', 'left', 6, P2.font, 'rgba(0,0,0,.6)');
     if (u && u.k == 'phone') { drawPhone(u); if (PH.ok && P2.vmExtra && ME.vm && ME.vm.R && !P2.noOverlay) { renderOverlay(P2.vmExtra, ME.vm.R); /* the hand, thumb and sleeve over the screen's picture */ sU(); X.imageSmoothingEnabled = false; X.drawImage(GLC, 0, 0, W, H) } } if (u && u.k == 'pol') drawPol(u); if (u && u.k == 'pc') drawPC(u); if (u && u.k == 'bj') drawBJ(u);
@@ -575,15 +599,15 @@ trackFor = function () { if (String(sc).startsWith('p2')) return P2.mus || 'none
 endDraw = function () {
   END.t++; sU(); r(0, 0, W, H, '#000');
   if (END.t < 40 && END.t % 6 < 3) r(0, 0, W, H, '#0a0612');
-  const a1 = clamp((END.t - 260) / 90, 0, 1), a2 = clamp((END.t - 420) / 90, 0, 1);
-  if (a1 > 0) { X.globalAlpha = a1; txt('S Y N C H R O N I C I T Y', W / 2, 74, '#fff', 'center', 8); X.globalAlpha = 1 }
-  if (a2 > 0) { X.globalAlpha = a2; txt('end of part one', W / 2, 92, '#777', 'center', 6); X.globalAlpha = 1 }
-  if (END.t > 560 && END.t % 60 < 40) txt('Z: wake up', W / 2, 150, '#555', 'center', 6);
-  if (END.t > 560 && ok()) p2Begin('day1');
+  // no end screen: the dream lets go, a voice from the other side of a door, and she wakes up in her room
+  const w = (t0, t1) => clamp(Math.min((END.t - t0) / 30, (t1 - END.t) / 30), 0, 1);
+  if (w(70, 190) > 0) { X.globalAlpha = w(70, 190) * .55; txt('"...Hitori?"', W / 2, H / 2 - 4, '#bbb', 'center', 7); X.globalAlpha = 1 }
+  if (END.t == 80 && typeof beep == 'function') beep(180, .25, .05);
+  if (END.t == 240) p2Begin('day1');
 };
 // saving part two happens on Hitori's computer (the Save game icon), into the same three slots as part one.
 // A part-two save is { p2: stage, at }; on the load menu it reads "Hitori's house" and starts that day again.
-const p2DayName = st => ({ day1: 'Day 1', dealer: 'Day 1', day2: 'Day 2', sister: 'Day 3' })[st] || 'Day 1';
-function p2Save(i) { ST.set(SK(i), JSON.stringify({ p2: P2.stage == 'dealer' ? 'day1' : P2.stage || 'day1', at: Date.now() })); ST.set('syn_played', 1) }
+const p2DayName = st => ({ day1: 'Day 1', dealer: 'Day 1', day2: 'Day 2', subway: 'Day 2', day3: 'Day 3', sister: 'Hikari comes home', home: 'The morning after' })[st] || 'Day 1';
+// (p2Save, which keeps the exact moment, is in js/p2_more.js)
 const _title31 = title;
 title = function () { C.style.cursor = ''; _title31() };   // (no PART TWO button: part two is reached by finishing part one)

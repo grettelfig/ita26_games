@@ -9,21 +9,27 @@ function D(lines, cb) {   // lines: 'Name:emotion|text' ; empty name = narration
 function dialogUpdate() {
   const l = DL.q[DL.i], c0 = DL.c | 0; DL.c += .8; DL.pt++; DL.age++;
   if ((DL.c | 0) > c0 && l.t[c0] && l.t[c0] != ' ' && (c0 & 1) && LK[l.n]) beep(260 + (l.n.length * 23) % 140, .02, .35);
-  if (ok()) { if (DL.c < l.t.length) DL.c = l.t.length; else { DL.i++; DL.c = 0; beep(400, .04); if (DL.i >= DL.q.length) { const cb = DL.cb; DL = null; cb && cb() } } }
+  if (ok()) { if (DL.c < l.t.length) { /* no skipping: the line types out at its own pace */ } else { DL.i++; DL.c = 0; beep(400, .04); if (DL.i >= DL.q.length) { const cb = DL.cb; DL = null; cb && cb() } } }
 }
 function wrapPx(str, maxW, sz) { const out = []; let line = ''; for (const w of str.split(' ')) { const t = line ? line + ' ' + w : w; if (tw(t, sz) > maxW && line) { out.push(line); line = w } else line = t } out.push(line); return out }
+const PORT_W = 42, PORT_H = 42;   // the portrait frame over the text box
 function drawDialog() {   // OMORI-style: black box with white border, fixed to the bottom; name tag left, portrait frame right
   sU(); X.globalAlpha = 1; X.imageSmoothingEnabled = false;
-  const l = DL.q[DL.i], def = LK[l.n], BX = 6, BW = 308, BH = 38, BY = H - BH - 5;
-  if (DL.wl !== DL.i) { DL.wl = DL.i; TXTF = l.cz ? CRAZYF : null; DL.lines = wrapPx(l.t, BW - 14, l.cz ? 8.6 : 8); TXTF = null }
+  // portraits only for the four friends (and Hikari, in the subway dream); everyone else just gets their name
+  const l = DL.q[DL.i], d0 = LK[l.n], def = d0 && (CH.includes(d0) || d0.key == 'npc_hikari') ? d0 : null, BX = 10, BW = 300, BH = 39, BY = H - BH - 5, TS = l.cz ? 9.4 : 8.8;
+  if (DL.wl !== DL.i) { DL.wl = DL.i; TXTF = l.cz ? CRAZYF : null; DL.lines = wrapPx(l.t, BW - 16, TS); TXTF = null }
   if (DL.sp !== l.n) { DL.sp = l.n; DL.slide = 0 } DL.slide = (DL.slide || 0) + 1;
-  if (def) { const PS = 42, PX = BX + BW - PS, rise = Math.min(1, DL.slide / 8), fy = BY - PS + 1 + Math.round((1 - rise) * (PS - 2));
-    r(PX, fy, PS, PS, '#fff'); r(PX + 1, fy + 1, PS - 2, PS - 2, '#000'); X.save(); X.beginPath(); X.rect(PX + 1, fy + 1, PS - 2, PS - 2); X.clip();
-    const hop = DL.pt < 6 ? -Math.round(Math.sin(DL.pt / 6 * Math.PI) * 2) : 0; portrait(def, l.e, PX + 1, fy + 1 + hop, (PS - 2) / 56); X.restore() }
+  if (def) {   // a tall frame, the shape of the chart's boxes, so the whole face and hair fit
+    const PW = PORT_W, PH = PORT_H, PX = BX + BW - PW, rise = Math.min(1, DL.slide / 8), fy = BY - PH + 1 + Math.round((1 - rise) * (PH - 2));
+    r(PX, fy, PW, PH, '#fff'); r(PX + 1, fy + 1, PW - 2, PH - 2, '#000'); X.save(); X.beginPath(); X.rect(PX + 1, fy + 1, PW - 2, PH - 2); X.clip();
+    const hop = DL.pt < 6 ? -Math.round(Math.sin(DL.pt / 6 * Math.PI) * 2) : 0, im = PORTRAITS[def.key + ':' + (l.e || 'neutral')] || PORTRAITS[def.key + ':neutral'];
+    if (im && im.complete && im.naturalWidth && /portraits_v63/.test(im.src)) { X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(im, PX + 1, fy + 1 + hop, PW - 2, PH - 2); X.imageSmoothingEnabled = false }
+    else portrait(def, l.e, PX + 1, fy + 1 + hop, (PW - 2) / 56);
+    X.restore() }
   r(BX, BY, BW, BH, '#fff'); r(BX + 1, BY + 1, BW - 2, BH - 2, '#000');
   const tag = def ? l.n : l.n && l.n != '' ? l.n : null;
   if (tag) { const nm = tag.toUpperCase(), nw = Math.ceil(tw(nm, 8)) + 12, ty = BY - 14; r(BX, ty, nw, 13, '#fff'); r(BX + 1, ty + 1, nw - 2, 11, '#000'); txt(nm, BX + 6, ty + 2, '#fff', 'left', 8) }
-  let left = DL.c | 0; TXTF = l.cz ? CRAZYF : null; DL.lines.slice(0, 3).forEach((line, i) => { if (left <= 0) return; const j = l.cz ? (Math.random() - .5) * .5 : 0; txt(line.slice(0, left), BX + 7 + j, BY + 5 + i * 10.5 + j, l.cz ? '#f4e4e8' : '#fff', 'left', l.cz ? 8.6 : 8); left -= line.length + 1 }); TXTF = null;
+  let left = DL.c | 0; TXTF = l.cz ? CRAZYF : null; DL.lines.slice(0, 3).forEach((line, i) => { if (left <= 0) return; const j = 0; txt(line.slice(0, left), BX + 7 + j, BY + 4.5 + i * 11 + j, l.cz ? '#f4e4e8' : '#fff', 'left', TS); left -= line.length + 1 }); TXTF = null;
   if (DL.c >= l.t.length && (tick >> 4) & 1) { r(BX + BW - 10, BY + BH - 8, 5, 1, '#fff'); r(BX + BW - 9, BY + BH - 7, 3, 1, '#fff'); r(BX + BW - 8, BY + BH - 6, 1, 1, '#fff') }
 }
 // ==================== LOCKED WAYS (the fears, and things that are not time yet) ====================
@@ -104,7 +110,7 @@ function goalText() {
 }
 // ==================== FIRST-TIME BANTER (plays once when the party first walks into a place) ====================
 const AREA_TALK = {
-  w_play: ['Caroline:happy|The swings! Nobody\'s on them. That means they\'re ours.', 'Steven:neutral|You\'re eighteen, Caroline.', 'Caroline:happy|And?'],
+  w_play: ['Caroline:happy|The swings! Nobody\'s on them. That means they\'re ours.', 'Steven:neutral|You\'re eighteen, Caroline.', 'Caroline:happy|And? There\'s two of them. Hitori, race you.', 'Hitori:neutral|...Fine. One go.'],
   w_cross: ['Uku:neutral|Four ways. We always end up taking all of them.', 'Steven:sad|My legs are already filing a complaint.'],
   w_garden: ['Uku:neutral|...Home sweet home.', 'Caroline:happy|Your garden looks so good, Uku!', 'Uku:blush|I don\'t really do anything. It just grows.'],
   w_meadow: ['Steven:worried|Those things in the grass. Are they looking at us?', 'Hitori:smug|Hehe. They\'re sprouts, Steven. Want me to hold your hand?', 'Steven:angry|...I hate you.'],
@@ -113,23 +119,28 @@ const AREA_TALK = {
   'g_gate:1': ['Caroline:worried|It\'s so dark on this side.', 'Steven:scared|Can we go back? We can go back. We can find him tomorrow, in the daylight, like normal people.', 'Hitori:neutral|There\'s firelight up ahead. Come on.'],
   'g_camp:1': ['Hermit Morrow:neutral|Travellers. At this hour.', 'Hermit Morrow:neutral|You look like you\'ve lost something.', 'Hitori:neutral|Someone.', 'Hermit Morrow:sad|Then rest first. The dark is kinder to people who have slept. Take the tent by the woodpile.'],
   g_marsh: ['Caroline:worried|Watch your step. The water doesn\'t move at all.'],
-  g_ruins: ['Steven:sad|Graves. Of course there are graves.', 'Caroline:neutral|They look old. Older than the trees.'],
+  g_ruins: ['Steven:sad|Graves. Of course there are graves.', 'Caroline:neutral|They look old. Older than the trees.', '|One stone is newer than the rest. The name on it has been scratched off with something sharp, again and again.'],
   g_castle: ['Caroline:shock|A castle! A real one!', 'Steven:neutral|In the middle of a forest. Sure. Why not.'],
   c_hall: ['Steven:scared|Did that armour just breathe?', 'Hitori:smug|Hehehe. Go and ask it.'],
   'b_path:2': ['|Waves, somewhere below. The air smells like salt.', 'Steven:sad|A cabin. Please let it have beds. I am begging.'],
   b_boardwalk: ['Steven:happy|Ice cream. There is ice cream. I can see it from here.', 'Hitori:neutral|We\'re not on holiday, Steven.', 'Steven:angry|Maybe YOU aren\'t.'],
   b_plaza: ['Caroline:happy|It looks like a postcard!', 'Hitori:neutral|...It looks like a postcard of a postcard.'],
-  b_shore: ['Caroline:happy|Sand! Real sand!', 'Steven:neutral|Do you ever think it\'s weird that nobody else is swimming?'],
+  b_shore: ['Caroline:happy|Sand! Real sand!', 'Steven:neutral|Do you ever think it\'s weird that nobody else is swimming?', 'Hitori:neutral|...I built a sandcastle on a beach like this once. With someone smaller than me.', 'Hitori:sad|She cried when the tide took it. I don\'t remember her face.'],
   'b_pier:3': ['Steven:worried|This pier goes a long way out.', 'Caroline:neutral|The water is so dark under it.'],
   n_drain: ['Steven:sad|I\'m soaked. I\'m soaked and I\'m in a pipe. This is my life now.', 'Caroline:neutral|There\'s light at the end. Pink light.'],
   'n_street:3': ['Caroline:shock|Woah...', 'Steven:neutral|A whole city. Under the sea. Or above it. I can\'t tell any more.', 'Hitori:neutral|It\'s late. Look for somewhere to sleep. That capsule place.'],
-  n_market: ['Caroline:happy|Lantern buns! Hitori, can we, please?', 'Hitori:neutral|...One.'],
+  n_market: ['Caroline:happy|Lantern buns! Hitori, can we, please?', 'Hitori:neutral|...One.', '|A stall at the end sells train tickets. Every one of them says ONE WAY.'],
   n_plaza: ['Steven:neutral|That\'s the casino everyone keeps talking about.', 'Caroline:worried|It looks like it\'s watching us.'],
   n_tower: ['Hitori:neutral|...Up. Everything in this city keeps pointing up.'],
   s_walk1: ['Hitori:neutral|Hello?', '|Your voice doesn\'t echo. It just stops, a little way in front of you.'],
-  s_walk2: ['|This looks exactly like the last stretch of path.', 'Hitori:neutral|...It isn\'t. It only looks like it.'],
+  s_walk2: ['|This looks exactly like the last stretch of path.', 'Hitori:neutral|...It isn\'t. It only looks like it.', '|Somewhere far off, a phone is ringing. Nobody picks it up.'],
   s_walk3: ['|The music has stopped.', 'Hitori:worried|Steven? Caroline? ...I\'m sorry, okay? I\'m sorry I dragged you all this way.']
 };
+// ==================== CHOICES THAT CARRY OVER ====================
+// Three moments in the dream ask Hitori to choose. The answers are flags here, and are copied to syn_p1ch so the
+// house in Part Two remembers them (her friends dreamt the same dream).
+function p1Choice(k) { flag('p1_' + k); try { const o = JSON.parse(ST.get('syn_p1ch') || '{}'); o[k] = 1; ST.set('syn_p1ch', JSON.stringify(o)) } catch (e) {} }
+function p1ChoiceReset() { try { ST.set('syn_p1ch', '{}') } catch (e) {} }
 // ==================== DAYS ====================
 function dayCard(n, sub, cb) { sc = 'daycard'; DC = { t: 0, n, sub, cb } }
 let DC = null;
@@ -151,25 +162,28 @@ const EV = {
   darkfear() {
     if (!F_('uku_gone')) return D(['|A dark tunnel. A little wind comes out of it.']);
     if (S.fear.dark) return D(['|The tunnel is only a tunnel now.']);
-    D(['Hitori:worried|It\'s so dark.', 'Steven:scared|Hitori, you\'re shaking.', 'Hitori:neutral|...I know. Just a little light. That\'s all I need.', '|Hold your light on the watching eyes until they look away.'], () => mini('dark', () => { S.fear.dark = 1; flag('tired1'); D(['Hitori:happy|~Hah. Hahaha. They looked away!', 'Caroline:happy|You did it!', 'Steven:neutral|Great. Now it\'s pitch black AND we\'re inside a log.', 'Hitori:neutral|There\'s light on the other side. Come on. We\'ll find somewhere to stop for the night.']) }));
+    D(['Hitori:worried|It\'s so dark.', 'Steven:scared|Hitori, you\'re shaking.', 'Hitori:neutral|...I know. Just a little light. That\'s all I need.', 'Hitori:sad|Someone used to leave the hall light on for me. I can\'t remember who.', '|Hold your light on the watching eyes until they look away.'], () => mini('dark', () => { S.fear.dark = 1; flag('tired1'); D(['Hitori:happy|~Hah. Hahaha. They looked away!', 'Caroline:happy|You did it!', 'Steven:neutral|Great. Now it\'s pitch black AND we\'re inside a log.', 'Hitori:neutral|There\'s light on the other side. Come on. We\'ll find somewhere to stop for the night.']) }));
   },
   sleep(e) {
     const d = S.day;
     if (!F_('tired' + d)) return D([d == 1 ? 'Hitori:neutral|...It\'s not time to sleep. Not while he\'s out there.' : 'Hitori:neutral|Not yet. There\'s still too much to do today.']);
     const talk = {
-      1: ['|The fire crackles. Nobody says anything for a long time.', 'Caroline:sad|He\'ll be okay. Right? Uku always turns up.', 'Steven:neutral|He probably went home the long way. He does that.', 'Hitori:neutral|...He didn\'t go home.', 'Steven:sad|Hitori. Don\'t.', 'Caroline:worried|Let\'s just sleep. Tomorrow we\'ll look everywhere. Together.', 'Hitori:neutral|...Together.'],
-      2: ['Steven:sad|Can I say something without you getting mad?', 'Hitori:neutral|No promises.', 'Steven:neutral|I can\'t remember his face. Uku\'s. I try, and it\'s just... a hoodie. Orange hair. That\'s all I\'ve got.', 'Caroline:worried|Me neither. I keep drawing him and it comes out blank.', 'Hitori:angry|Then I\'ll remember for all of us.', 'Caroline:sad|...Okay. Goodnight, Hitori.'],
-      3: ['Caroline:neutral|These little beds are kind of cute.', 'Steven:angry|Hitori. We\'ve been walking for three days. We don\'t even know where we\'re going.', 'Hitori:angry|We\'re going to find him.', 'Steven:angry|Then tell me one thing about him. One thing that isn\'t his hair.', 'Hitori:shock|He... he likes...', 'Hitori:sad|...Goodnight, Steven.', 'Caroline:sad|...Goodnight, everyone.']
+      1: null,
+      2: ['Caroline:happy|Listen. You can hear the sea from up here.', 'Steven:sad|I can hear my legs. They\'re screaming.', 'Caroline:neutral|There\'s a lighthouse on the old map. And a boardwalk. With games!', 'Steven:happy|...And ice cream?', 'Caroline:happy|Probably ice cream.', 'Steven:happy|Okay. I can live with that.', 'Hitori:neutral|...He\'d like it here. Go to sleep, both of you.', 'Caroline:sad|...Goodnight, Hitori.'],
+      3: ['Caroline:neutral|These little beds are kind of cute. Like sleeping in a drawer.', 'Steven:neutral|The sign outside said ROOMS FOR THE NIGHT. Not which night.', 'Caroline:happy|The whole city is pink. Even the rain looked pink.', 'Steven:angry|Hitori. We\'ve been walking for three days. Do you even know where we\'re going?', 'Hitori:neutral|...Up. Everything here points up.', 'Steven:sad|That\'s not an answer.', 'Hitori:sad|...Goodnight, Steven.', 'Caroline:sad|...Goodnight, everyone.']
     }[d] || [];
     const wake = { 1: ['g_camp', 11, 12], 2: ['b_cabin', 9, 7], 3: ['n_capsule', 11, 8] }[d];
+    if (d == 1) return ask(['|The fire crackles. Nobody says anything for a long time.', 'Caroline:sad|He\'ll be okay. Right? Uku always turns up.'], ['"He always turns up."', '"...He didn\'t go home."'], i => {
+      if (i == 0) { p1Choice('reassure'); D(['Hitori:neutral|He always turns up. Every single time.', 'Caroline:happy|...Yeah. Yeah, he does.', 'Steven:neutral|Probably went home the long way. He does that.', 'Hitori:neutral|...', '|You don\'t believe it. But Caroline falls asleep smiling.', '|You close your eyes.'], () => nextDay(wake)) }
+      else D(['Steven:neutral|He probably went home the long way. He does that.', 'Hitori:neutral|...He didn\'t go home.', 'Steven:sad|Hitori. Don\'t.', 'Caroline:worried|Let\'s just sleep. Tomorrow we\'ll look everywhere. Together.', 'Hitori:neutral|...Together.', '|You close your eyes.'], () => nextDay(wake)) });
     D([...talk, '|You close your eyes.'], () => nextDay(wake));
   },
-  morning2() { D(['Steven:sad|My back hates me. My back hates this forest.', 'Caroline:happy|Morning, everyone! ...Hitori, did you sleep?', 'Hitori:neutral|No.', 'Hermit Morrow:neutral|If you are looking for someone, try the castle to the north. Lost things wash up there.', 'Caroline:neutral|Hey... who are we looking for again?', 'Hitori:shock|...What?', 'Caroline:happy|Kidding! Uku. Of course. Uku.', 'Hitori:neutral|...That wasn\'t funny.']) },
+  morning2() { D(['Steven:sad|My back hates me. My back hates this forest.', 'Caroline:happy|Morning, everyone! ...Hitori, did you sleep?', 'Hitori:neutral|No.', ...(F_('p1_reassure') ? ['Caroline:happy|You said he always turns up. I\'m holding you to that.'] : []), 'Hermit Morrow:neutral|If you are looking for someone, try the castle to the north. Lost things wash up there.', 'Hermit Morrow:neutral|And take your medicine, child. The bitter kind keeps the dark polite.', 'Caroline:happy|A castle! He said a castle! Do you think there\'s a moat?', 'Steven:neutral|There\'s always a moat. And it\'s always gross.', 'Hitori:neutral|Pack up. North.']) },
   morning3() { D(['|Morning light through the cabin window. Somewhere below, the sea.', 'Caroline:happy|The sea! Look at the SEA!', 'Steven:happy|There\'s a whole resort down there. With ice cream. I\'m not going to pretend I\'m not excited.', 'Hitori:neutral|...Fine. But we\'re looking for him. Not having fun.']) },
-  morning4() { D(['Steven:neutral|...Hey. Sorry about last night.', 'Hitori:neutral|Whatever.', 'Caroline:worried|There\'s a casino everybody keeps talking about. If something is wrong in this city, it\'s in there.', 'Steven:neutral|Let\'s get it over with.']) },
+  morning4() { ask(['Steven:neutral|...Hey. Sorry about last night.'], ['"Whatever."', '"...Me too. I\'m sorry."'], i => { if (i == 1) p1Choice('sorry'); D([i == 1 ? 'Hitori:neutral|...Me too. I\'m sorry. I\'m not mad at you. I\'m mad at everything.' : 'Hitori:neutral|Whatever.', ...(i == 1 ? ['Steven:happy|...Okay. Good. Cool.', 'Caroline:happy|Aww.', 'Steven:angry|Don\'t.'] : []), 'Caroline:worried|There\'s a casino everybody keeps talking about. If something is wrong in this city, it\'s in there.', 'Steven:neutral|Let\'s get it over with.']) }) },
   morning5() { D(['|You wake up on a cold island of grass, floating in the dark. The ladder ends beside you.', 'Hitori:neutral|...I fell asleep. On a ladder. Great.', 'Hitori:sad|It\'s so quiet without them.', 'Hitori:neutral|...Okay. That building, on the far island. If he\'s anywhere, he\'s there.']) },
   throne() {
-    D(['Caroline:neutral|Why are we in a castle again?', 'Steven:sad|Ugh. No idea. Something about... finding someone?', 'Hitori:worried|...Someone small. Orange hair.', 'Caroline:neutral|Hm. Can\'t think of anyone like that.', '|One by one, your friends\' faces go blank. Just for a moment.', 'Hitori:scared|~...They forgot. They\'re forgetting him.', 'Hitori:angry|...Fine. FINE. The webbed path by the gate. That\'s the only way left. We\'re going.'], () => { flag('d2_throne') })
+    D(['Caroline:neutral|It\'s so big in here. Who sits on a chair that big?', 'Steven:neutral|Someone with a very big... sense of self.', 'Caroline:neutral|Wait. Why did we come in here again?', '|For a moment, your friends\' faces go blank.', 'Hitori:scared|~...', 'Hitori:angry|...The webbed path by the gate. That\'s the only way left. We\'re going.'], () => { flag('d2_throne') })
   },
   spiderfear() {
     if (!F_('d2_throne')) return D(['|Thick webs. Something skitters in them.', 'Caroline:worried|Let\'s not go that way. Not yet.']);
@@ -184,7 +198,7 @@ const EV = {
   },
   house() { D(['|The House spins its reels. "WELCOME BACK, HITORI. THE HOUSE ALWAYS WINS."'], () => startBattle({ k: 'enemy', t: 'house', x: 0, y: 0, boss: 1 })) },
   friendsvanish() {
-    D(['|The House folds in on itself like a card table.', 'Caroline:worried|Hitori... why is it so quiet?', 'Steven:scared|My hands. Look at my hands. I can see the floor through them.', 'Caroline:sad|I don\'t remember why we came here. I don\'t remember... the woods. Did we have a tree?', 'Hitori:shock|We had a tree. We had a TREE. The hollow one, by the pond, you always sat on the left and-', 'Steven:sad|Hitori. Thanks for dragging us along. Really.', 'Caroline:happy|Find him, okay? Find him and tell him we said hi.', 'Hitori:shock|Wait. Wait, no, don\'t-'],
+    D(['|The House folds in on itself like a card table.', 'Caroline:worried|Hitori... why is it so quiet?', 'Steven:scared|My hands. Look at my hands. I can see the floor through them.', 'Caroline:sad|I don\'t remember why we came here. I don\'t remember... the woods. Did we have a tree?', 'Hitori:shock|We had a tree. We had a TREE. The hollow one, by the pond, you always sat on the left and-', ...(F_('p1_sorry') ? ['Steven:sad|Hey. I\'m glad we made up. Before... whatever this is.'] : []), 'Steven:sad|Hitori. Thanks for dragging us along. Really.', 'Caroline:happy|Find him, okay? Find him and tell him we said hi.', 'Hitori:shock|Wait. Wait, no, don\'t-'],
       () => { fadeFriend(0, () => {}); fadeFriend(1, () => { flag('d4_house'); S.party = [PL]; D(['|You are alone.', 'Hitori:neutral|...Okay.', 'Hitori:neutral|...Okay. The tower. Everything here keeps pointing up.']) }) })
   },
   heightfear() {
@@ -194,10 +208,12 @@ const EV = {
   finale() { D(['|The observatory is empty.', '|A chair beside the great telescope. An orange hoodie, folded over the back of it.', 'Hitori:worried|Uku?', '|No answer. Only the low hum of the stars.']) },
   obshood() {
     if (F_('obs_hood')) return D(['|Uku\'s hoodie. You don\'t want to touch it again.']);
-    D(['|It is Uku\'s hoodie. It is still warm.', 'Hitori:sad|...You were just here.', 'Hitori:angry|~Why do you keep LEAVING?!', '|The room swallows the sound.'], () => flag('obs_hood'));
+    ask(['|It is Uku\'s hoodie. It is still warm.', 'Hitori:sad|...You were just here.'], ['"Why do you keep LEAVING?!"', '"...You can go. I\'ll be okay."'], i => {
+      if (i == 1) { p1Choice('letgo'); D(['Hitori:sad|...You can go.', 'Hitori:neutral|I\'ll be okay. I think. I\'ll try.', '|The hoodie is cooling under your hands. It doesn\'t feel like losing him. It feels like letting go of a railing.'], () => flag('obs_hood')) }
+      else D(['Hitori:angry|~Why do you keep LEAVING?!', '|The room swallows the sound.'], () => flag('obs_hood')) });
   },
   obstele() {
-    D(['|You look into the telescope. It is not pointed up at the stars. It is pointed down.', '|Far, far below: the hollow tree. A picnic blanket. Three small figures, sitting very close together.', '|There is room for one more. None of them is looking up.', 'Hitori:sad|...', 'Hitori:neutral|...Fine. I\'ll walk.'], () => { flag('obs_seen'); addLore('below') });
+    D(['|You look into the telescope. It is not pointed up at the stars. It is pointed down.', '|Far, far below: the hollow tree. A picnic blanket. Three small figures, sitting very close together.', '|There is room for one more. None of them is looking up.', ...(F_('p1_letgo') ? ['Hitori:sad|...They look happy.', 'Hitori:neutral|Okay. I\'ll walk. I don\'t have to run any more.'] : ['Hitori:sad|...', 'Hitori:neutral|...Fine. I\'ll walk.'])], () => { flag('obs_seen'); addLore('below') });
   },
   walk4() {
     D(['|...', '|Someone, very far away, is saying your name.', '|~"Hitori."', 'Hitori:scared|...Who\'s there?', '|~"Hitori. It\'s six o\'clock."', '|~"Everyone is waiting for you."', 'Hitori:scared|~I\'m not done. I haven\'t found him yet. I haven\'t found ANY of them-', '|The voice doesn\'t answer. The path keeps going.'], () => { shake = 20 });

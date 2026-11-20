@@ -218,13 +218,13 @@ function wallZ(mb, x, z0, z1, fl, gaps = [], t = 'wall', o = {}) {
   const yy = FY[fl] + .5, X = LM(x, (z0 + z1) / 2, yy)[0], Z0 = LM(x, z0 + .01, yy)[1] - .01, Z1 = LM(x, z1 - .01, yy)[1] + .01;
   const G = gaps.map(([a, b]) => lGap('z', x, a, b, fl, Z0, Z1)); lRaw(() => wallZn(mb, X, Z0, Z1, fl, G, t, o)) }
 function wallXn(mb, z, x0, x1, fl, gaps = [], t = 'wall', o = {}) {
-  const y0 = FY[fl], y1 = y0 + CEIL; let cur = x0; const segs = [];
+  const y0 = FY[fl], y1 = y0 + CEIL + (fl == 0 ? .2 : 0);   /* ground-floor walls go up into the floor above, so there's no gap between storeys */ let cur = x0; const segs = [];
   for (const [a, b] of gaps.slice().sort((p, q) => p[0] - q[0])) { if (a > cur) segs.push([cur, a, y0, y1]); segs.push([a, b, y0 + DOORH + .03, y1]); cur = b; GAPS.push({ ax: 'x', c: z, a, b, y: y0 }) }
   if (cur < x1) segs.push([cur, x1, y0, y1]);
   for (const [a, b, ya, yb] of segs) { mb.box(t, a, ya, z - WT / 2, b, yb, z + WT / 2, { us: 1.6, ...o }); if (ya - y0 < .1) { hs(a, ya, z - WT / 2, b, yb, z + WT / 2); mb.box('walnut', a, y0, z - WT / 2 - .015, b, y0 + .1, z + WT / 2 + .015, { us: 2, bev: .006 }) } }
 }
 function wallZn(mb, x, z0, z1, fl, gaps = [], t = 'wall', o = {}) {
-  const y0 = FY[fl], y1 = y0 + CEIL; let cur = z0; const segs = [];
+  const y0 = FY[fl], y1 = y0 + CEIL + (fl == 0 ? .2 : 0);   /* ground-floor walls go up into the floor above, so there's no gap between storeys */ let cur = z0; const segs = [];
   for (const [a, b] of gaps.slice().sort((p, q) => p[0] - q[0])) { if (a > cur) segs.push([cur, a, y0, y1]); segs.push([a, b, y0 + DOORH + .03, y1]); cur = b; GAPS.push({ ax: 'z', c: x, a, b, y: y0 }) }
   if (cur < z1) segs.push([cur, z1, y0, y1]);
   for (const [a, b, ya, yb] of segs) { mb.box(t, x - WT / 2, ya, a, x + WT / 2, yb, b, { us: 1.6, ...o }); if (ya - y0 < .1) { hs(x - WT / 2, ya, a, x + WT / 2, yb, b); mb.box('walnut', x - WT / 2 - .015, y0, a, x + WT / 2 + .015, y0 + .1, b, { us: 2, bev: .006 }) } }
@@ -245,8 +245,10 @@ function prop(mb, t, x0, y0, z0, x1, y1, z1, o = {}) { mb.box(t, x0, y0, z0, x1,
 function inter(id, box, name, on, cond) { if (LAYOUT.on && !LAYOUT.raw) box = LBOX(box); const it = { id, box, name, on, cond }; H3.inter.push(it); return it }
 // a panel door: raised panels on both faces, brass knobs. Built with the hinge at the origin, the panel running along +x.
 // (one plain paint on the slab and the panels: the old texture had panels painted on as well, which doubled them)
-function doorMesh(mb, t = 'doorpaint') {
-  const w = DOORW, h = DOORH - .02, th = .04, kx = w / .9, ky = h / 2.08; mb.box(t, 0, 0, -th / 2, w, h, th / 2, { us: .9 });
+// v73: the leaf fills the opening inside the jamb linings (1.5 cm each side and at the top), so no gap shows round it
+function doorMesh(mb, t = 'doorpaint') { mb.with(M4.tr(.016, 0, 0), m => doorMesh0(m, t)) }
+function doorMesh0(mb, t) {
+  const w = DOORW - .032, h = DOORH + .012, th = .04, kx = w / .9, ky = h / 2.08; mb.box(t, 0, 0, -th / 2, w, h, th / 2, { us: .9 });
   for (const s of [-1, 1]) { for (const [x0, y0, x1, y1] of [[.12, .14, .42, .78], [.48, .14, .78, .78], [.12, .9, .42, 1.42], [.48, .9, .78, 1.42], [.12, 1.54, .42, 1.94], [.48, 1.54, .78, 1.94]]) {
       const zf = s > 0 ? th / 2 : -th / 2, X0 = x0 * kx, X1 = x1 * kx, Y0 = y0 * ky, Y1 = y1 * ky, m = .03, d = s * .01;
       // a raised panel: a bevelled frame stepping out, then the flat field in the middle
@@ -267,9 +269,10 @@ function doorN(id, hx, hz, fl, along, swing, o = {}) {
 }
 function doorUse(d) {
   if (d.locked) { const m = typeof d.locked == 'function' ? d.locked() : d.locked; if (m) { if (m === 'skip') return; SFX3.locked(); if (m !== true) say3([m]); return } }
-  d.to = d.to ? 0 : 1; SFX3.door(!!d.to);
+  d.to = d.to ? 0 : 1; SFX3.door(!!d.to, d);
 }
 function doorTick(dt) { for (const d of H3.doors) { d.a += clamp(d.to - d.a, -dt * 2.2, dt * 2.2); d.solid.off = d.a > .15; const base = d.along == 'x' ? 0 : -HP; d.obj.M = M4.mul(M4.tr(d.hx, d.y, d.hz), M4.ry(base + d.a * d.swing * HP)) }
+  const dn = H3.extra.doorNotes; if (dn && dn.door) dn.M = dn.door.obj.M;
   const F = H3.fridge; if (F) { F.a += clamp(F.to - F.a, -dt * 1.6, dt * 1.6); const e = F.a * F.a * (3 - 2 * F.a); F.main.M = M4.chain(F.base, M4.tr(.39, 0, -.31), M4.ry(-e * 1.75)); F.top.M = M4.chain(F.base, M4.tr(.39, 1.47, -.31), M4.ry(-e * .12)); F.light.off = F.a < .05 }
   const Ch = H3.chair; if (Ch) { Ch.obj.M = M4.mul(M4.tr(Ch.x, 3, Ch.z), M4.ry(Ch.ry)); Ch.solid.x0 = Ch.x - .24; Ch.solid.x1 = Ch.x + .24; Ch.solid.z0 = Ch.z - .24; Ch.solid.z1 = Ch.z + .24 } }
 // one built object you can move
@@ -290,12 +293,15 @@ function buildHouse() {
     for (const [x0, z0, x1, z1] of [[7.4, 5.95, 9.45, 6.02], [9.38, 5.95, 9.45, 12.25], [5.6, 12.18, 9.45, 12.25]]) mb.box('trimw', x0, 2.76, z0, x1, 3.03, z1);
     mb.box('ceil', 0, 5.8, 0, HOUSE_W, 5.9, HOUSE_D, { skip: 'nsewt', us: 2 });
     const N = 15, Z0 = 12.6, RUN = .44, RISE = .2, SX0 = 5.72, SX1 = 7.38;
-    for (let i = 0; i < N; i++) { const z1 = Z0 - i * RUN, z0 = z1 - RUN, y = (i + 1) * RISE; mb.box('stairc', SX0, y - RISE, z0, SX1, y, z1, { us: .8, skip: 'n' }); mb.box('walnut', SX0 - .02, y - .02, z1 - .03, SX1 + .03, y + .012, z1 + .02, { bev: .006 });
+    for (let i = 0; i < N; i++) { const z1 = Z0 - i * RUN, z0 = z1 - RUN, y = (i + 1) * RISE; mb.box('stairc', SX0, 0, z0, SX1, y, z1, { us: .8, skip: i == N - 1 ? 'b' : 'nb' });   /* solid down to the floor: no open underside */ mb.box('walnut', SX0 - .02, y - .02, z1 - .03, SX1 + .03, y + .012, z1 + .02, { bev: .006 });
       mb.lathe('walnut', [[.022, 0], [.022, .05], [.012, .1], [.015, .45], [.01, .78], [.02, .82]], { cx: SX1 - .03, cz: z1 - RUN / 2, seg: 8, yf: () => y }) }
     mb.quad('wall', [SX1 + .02, 0, Z0], [SX1 + .02, 0, 6], [SX1 + .02, 3 - .05, 6], [SX1 + .02, 0, Z0]); mb.quad('wall', [SX1 + .02, 0, 6], [SX1 + .02, 0, Z0], [SX1 + .02, 3 - .05, 6], [SX1 + .02, 3 - .05, 6]);
     mb.box('walnut', SX1 - .06, 0, Z0 - .06, SX1 + .06, 1.05, Z0 + .06, { bev: .01 }); mb.lathe('walnut', [[.05, 1.05], [.07, 1.1], [.0, 1.16]], { cx: SX1, cz: Z0, seg: 10 });   // the newel post
     mb.tube('walnut', [[SX1 - .03, .95, Z0 + .02], [SX1 - .03, 3.9, 5.95]], [.028, .028], { seg: 6 });
     hs(SX1, 0, 6.2, SX1 + .07, 2.6, 12.45);
+    hs(SX0, 0, 6, SX1, 1.1, 8.4);   // you can't walk in under the top of the stairs (it's solid now)
+    // the band between the ground-floor walls and the upstairs floor, round the open foyer
+    mb.box('wall', 5.6 - WT / 2, 2.7, 6, 5.6 + WT / 2, 3.05, 12.25, { us: 1.6 });
     // the gallery railings round the open foyer
     const bal = (x, z) => mb.lathe('walnut', [[.03, 3], [.03, 3.06], [.015, 3.1], [.018, 3.5], [.012, 3.85], [.025, 3.9]], { cx: x, cz: z, seg: 8 });
     for (let x = 7.55; x < 9.4; x += .25) bal(x, 6); for (let z = 6.15; z < 12.2; z += .25) bal(9.42, z); for (let x = 5.75; x < 9.4; x += .25) bal(x, 12.22);
@@ -315,15 +321,15 @@ function buildHouse() {
     // living room: two armchairs and a side table with a lamp, facing the TV; a tall plant; a second rug
     for (const [x, z, r] of [[2.4, 12.6, PI * .85], [2.5, 7.0, PI * .15]]) { mb.at(x, 0, z, r, m => MOD.sofa(m, .9)); hs(x - .5, 0, z - .5, x + .5, .9, z + .5) }
     mb.at(1.0, 0, 12.9, 0, m => { m.box('walnut', -.25, .55, -.25, .25, .6, .25, { bev: .01 }); for (const x of [-.2, .2]) for (const z of [-.2, .2]) m.box('walnut', x - .02, 0, z - .02, x + .02, .55, z + .02) }); mb.at(1.0, .6, 12.9, 0, m => MOD.tableLamp(m, .48)); hs(.75, 0, 12.65, 1.25, .62, 13.15);
-    mb.at(5.1, 0, 13.4, 0, m => MOD.plant(m, false)); hs(4.9, 0, 13.2, 5.3, .9, 13.6);
+    mb.at(.42, 0, 13.58, 0, m => MOD.plant(m, false)); hs(.22, 0, 13.38, .62, .9, 13.78);   // in the corner, out of the door's way
     // the kitchen: a dining table with four chairs at the far end, under its own lamp
     mb.at(13.2, 0, 12.0, 0, m => MOD.table(m, 1.4, .9, .76, 'oak')); hs(12.5, 0, 11.55, 13.9, .78, 12.45);
-    for (const [x, z, r] of [[12.85, 11.3, 0], [13.55, 11.3, 0], [12.85, 12.7, PI], [13.55, 12.7, PI]]) { mb.at(x, 0, z, r, m => MOD.chair(m)); hs(x - .2, 0, z - .2, x + .2, .5, z + .2) }
+    for (const [x, z, r] of [[12.85, 11.3, PI], [13.55, 11.3, PI], [12.85, 12.7, 0], [13.55, 12.7, 0]]) { mb.at(x, 0, z, r, m => MOD.chair(m)); hs(x - .2, 0, z - .2, x + .2, .5, z + .2) }
     mb.at(13.2, 0, 12.0, 0, m => MOD.ceilingLamp(m, 2.8));
     // Hitori's room: a white dresser by the door, a wooden chest of drawers with a lamp by the window wall
     mb.at(11.66, 3, 7.4, HP, m => { m.box('vanity', -.5, 0, -.24, .5, .9, .24, { fit: 1 }); m.box('trimw', -.52, .9, -.26, .52, .93, .26) }); hs(11.4, 3, 6.88, 11.92, 3.95, 7.92);
     mb.at(11.75, 3.93, 7.15, 0, m => { m.lathe('porcelain', [[.04, 0], [.06, .1], [.03, .2]], { seg: 10 }); m.box('gamecase', .1, 0, .1, .22, .02, .3, { fit: 1 }) });
-    mb.at(16.12, 3, 7.6, -HP, m => MOD.dresser(m, 1.1, .9)); hs(15.86, 3, 7.05, 16.4, 3.92, 8.15); mb.at(16.12, 3.9, 7.95, 0, m => MOD.tableLamp(m, .42));
+    mb.at(16.12, 3, 7.6, HP, m => MOD.dresser(m, 1.1, .9)); hs(15.86, 3, 7.05, 16.4, 3.92, 8.15); mb.at(16.12, 3.9, 7.95, 0, m => MOD.tableLamp(m, .42));
     // the landing upstairs: a long bench under a painting, a plant in the corner
     mb.at(8.5, 3, .35, 0, m => { m.box('walnut', -.8, .4, -.2, .8, .46, .2, { bev: .01 }); for (const x of [-.72, .72]) m.box('walnut', x - .04, 0, -.16, x + .04, .4, .16) }); hs(7.7, 3, .1, 9.3, 3.46, .6);
     mFrame(mb, 'painting', 's', 8.5, 4.6, .07, 1.4, .9, 'walnut'); mb.at(11.0, 3, .5, 0, m => MOD.plant(m, false)); hs(10.8, 3, .3, 11.2, 3.9, .7);
@@ -336,7 +342,7 @@ function buildHouse() {
   wallZ(mb, 8.6, 0, 10, 0, [[1.2, 2.1], [4.7, 8.1]], 'wall');
   wallX(mb, 3.5, 8.6, 12, 0, [], 'wall');
   // ---- walls, upper floor
-  wallX(mb, 0, 0, 12, 1, [], 'wall'); wallX(mb, 10, 0, 12, 1, [], 'wall'); wallZ(mb, 0, 0, 10, 1, [], 'wall'); wallZ(mb, 12, 0, 10, 1, [], 'wall');
+  wallX(mb, 0, 0, 12, 1, [[5.0, 5.8]], 'wall'); wallX(mb, 10, 0, 12, 1, [], 'wall');   /* v73: a doorway off the landing into the new wing */ wallZ(mb, 0, 0, 10, 1, [], 'wall'); wallZ(mb, 12, 0, 10, 1, [], 'wall');
   wallZ(mb, 4, 0, 10, 1, [[1.5, 2.4], [9.05, 9.95]], 'wall'); wallX(mb, 4.5, 0, 4, 1, [], 'wall');
   wallZ(mb, 8.6, 0, 10, 1, [[2, 2.9], [6, 6.9]], 'wall'); wallX(mb, 5, 8.6, 12, 1, [], 'wall');
   doorTrim(mb);
@@ -345,12 +351,12 @@ function buildHouse() {
   ext.box('siding', -.08, 0, -.08, 12.08, 5.9, 0, { us: 1.4, skip: 's' }); ext.box('siding', -.08, 0, 10, 12.08, 5.9, 10.08, { us: 1.4, skip: 'n' }); ext.box('siding', -.08, 0, 0, 0, 5.9, 10, { us: 1.4, skip: 'e' }); ext.box('siding', 12, 0, 0, 12.08, 5.9, 10, { us: 1.4, skip: 'w' });
   ext.quad('roof', [-.4, 5.9, -.4], [12.4, 5.9, -.4], [12.4, 8, 5], [-.4, 8, 5], [[0, 0], [12, 0], [12, 3], [0, 3]]); ext.quad('roof', [-.4, 8, 5], [12.4, 8, 5], [12.4, 5.9, 10.4], [-.4, 5.9, 10.4], [[0, 0], [12, 0], [12, 3], [0, 3]]);
   ext.quad('siding', [-.08, 5.9, -.4], [-.08, 8, 5], [-.08, 5.9, 10.4], [-.08, 5.9, 10.4]); ext.quad('siding', [12.08, 5.9, -.4], [12.08, 8, 5], [12.08, 5.9, 10.4], [12.08, 5.9, 10.4]);
-  ext.box('grass', -30, -.12, -30, 42, -.02, 40, { skip: 'nsewb', us: 2 });
+  // (the lawn is laid after the stretch is switched off, so it stops at the pavement and doesn't cover the street: v77)
   ext.decal('litwin', 12.09, 4.5, 8.95, 1.3, 1.3, 'e', [1, 1, 1, 1]); ext.decal('night', 12.09, 4.5, 2.5, 1.2, 1.2, 'e', [.4, .4, .5, 1]); ext.decal('night', 12.09, 1.75, 6.1, .9, .7, 'e', [.4, .4, .5, 1]);
   ext.decal('door', 6.45, 1.05, 10.09, .9, 2.1, 's', [.5, .5, .5, 0]); ext.decal('night', 2, 1.6, 10.09, 1.6, 1.2, 's', [.4, .4, .5, 1]); ext.decal('night', 2, 4.5, 10.09, 1.4, 1.2, 's', [.4, .4, .5, 1]);
   ext.box('bark', 16, 0, 12, 16.5, 4, 12.5, { us: 1 }); for (const [y, r] of [[3, 2.4], [4.4, 1.9], [5.6, 1.3]]) ext.box('leaves', 16.25 - r, y, 12.25 - r, 16.25 + r, y + 1.4, 12.25 + r, { us: 1.5 });
   ext.box('dwood', 16.6, 3.2, 12.2, 17.6, 3.3, 12.3);
-  LAYOUT.stretch = 0;
+  LAYOUT.stretch = 0; lRaw(() => ext.box('grass', -6, -.12, -7.5, 23, -.02, 18.4, { skip: 'nsewb', us: 2 }));
   const glass = new MB();   // the mirrors: their glass is a separate object so it can show a reflection
   const mirror = (face, cx, cy, cz, w, h) => { mFrame(mb, null, face, cx, cy, cz, w, h, 'walnut'); const n = { n: [0, 0, -1], s: [0, 0, 1], e: [1, 0, 0], w: [-1, 0, 0] }[face]; const m = new MB(); m.decal('mirror', cx + n[0] * .006, cy, cz + n[2] * .006, w, h, face); const o = m.build(); o.mirror = 'mirror'; H3.mirrors.push({ obj: o, p: L3P([cx + n[0] * .01, cy, cz + n[2] * .01]), n }) };
   // a mirror placed straight on the new plan
@@ -361,8 +367,8 @@ function buildHouse() {
   mb.at(7.9, 0, 9.75, 0, m => MOD.shoeRack(m)); hs(7.45, 0, 9.58, 8.35, .45, 9.94);
   mb.at(7.95, 0, 8.55, 0, m => MOD.coatStand(m)); hs(7.8, 0, 8.4, 8.1, 1.8, 8.7);
   mirror('w', 8.54, 1.5, 3.2, .55, .85); inter('hallmirror', [8.4, 1, 2.8, 8.6, 2, 3.6], 'Mirror', () => P2S.look('hallmirror'));
-  { const g = lGap('x', 10, 6, 6.9, 0, 0, HOUSE_W), g0 = lGap('x', 0, 6, 6.9, 0, 0, HOUSE_W); lRaw(() => { mb.with(M4.tr(g[0], 0, HOUSE_D), m => doorMesh(m)); mb.with(M4.tr(g0[0], 0, 0), m => doorMesh(m)); hs(g[0], 0, HOUSE_D - .1, g[1], DOORH, HOUSE_D + .06); hs(g0[0], 0, -.06, g0[1], DOORH, .1);
-    inter('frontdoor', [g[0], 0, HOUSE_D - .15, g[1], DOORH, HOUSE_D + .1], 'Front door', () => P2S.look('frontdoor')); inter('backdoor', [g0[0], 0, -.1, g0[1], DOORH, .2], 'Back door', () => P2S.look('backdoor')) }) }
+  { const g = lGap('x', 10, 6, 6.9, 0, 0, HOUSE_W), g0 = lGap('x', 0, 6, 6.9, 0, 0, HOUSE_W); lRaw(() => { mb.with(M4.tr(g[0], 0, HOUSE_D), m => doorMesh(m)); hs(g[0], 0, HOUSE_D - .1, g[1], DOORH, HOUSE_D + .06); H3.backGap = g0;   /* v73: the back door is a real door now, into the new wing (js/p2_wing.js) */
+    inter('frontdoor', [g[0], 0, HOUSE_D - .15, g[1], DOORH, HOUSE_D + .1], 'Front door', () => P2S.look('frontdoor')); }) }
   mb.box('rugflor', 5.75, .003, 5.6, 7.75, .012, 8.3, { skip: 'nsewb', fit: 1 });
   // the living room: sofa, TV, coffee table, a floor lamp in the corner (out of the way of the door), a bookshelf, the window, photos
   mb.at(.56, 0, 7, -HP, m => MOD.sofa(m, 2.2)); hs(.1, 0, 5.9, 1.02, .9, 8.1);
@@ -379,7 +385,7 @@ function buildHouse() {
   // the back corridor: a little table with a dead landline, coats on hooks, the back door
   mb.at(4.85, 0, .3, PI, m => MOD.table(m, .6, .35, .75, 'walnut')); hs(4.55, 0, .1, 5.15, .78, .5); mb.at(4.85, .76, .28, PI + .2, m => MOD.oldPhone(m)); inter('landline', [4.6, .7, .1, 5.1, 1, .5], 'Old phone', () => P2S.look('landline'));
   mb.box('walnut', 7.1, 1.65, .06, 8.3, 1.72, .09); for (let i = 0; i < 3; i++) mb.at(7.35 + i * .4, 0, .06, PI + (i - 1) * .1, m => m.lathe(['sofa', 'curtain', 'lacquer'][i], [[.03, 1.68], [.13, 1.55], [.15, 1.2], [.14, 1.0]], { seg: 10, sz: .5, cz: -.08 }));
-  mWindow(mb, 's', 5.2, 1.6, .06, 1, 1, {});
+  // (the back corridor's window is gone: the new wing is on the other side of that wall now)
   // the kitchen: counters and cabinets along the east wall (sink under the window), the fridge, a clock stuck at six, the table by the south wall
   mb.at(11.63, 0, 5.81, HP, m => { MOD.counter(m, 4.38, { gap: [1.2, 1.7], sink: -.29 }); MOD.stove(m, 1.457) }); hs(11.3, 0, 3.6, 11.94, .92, 8.02);
   mb.at(11.77, 1.5, 4.56, HP, m => MOD.upperCabinets(m, 1.88)); mb.at(11.77, 1.5, 7.35, HP, m => MOD.upperCabinets(m, 1.3));
@@ -400,7 +406,7 @@ function buildHouse() {
   // the oven tower: tall cabinet with two black ovens
   mb.box('cabdoor', 9.0, 0, 3.52, 9.66, 2.25, 4.15, { us: 1 }); hs(9.0, 0, 3.5, 9.66, 2.25, 4.15);
   for (const [y0, y1] of [[.75, 1.32], [1.36, 1.93]]) { mb.box('ovenblack', 9.06, y0, 4.15, 9.6, y1, 4.17, { fit: 1 }); mb.box('chrome', 9.1, y1 - .08, 4.17, 9.56, y1 - .06, 4.19) }
-  mb.decal('wallswitch', 8.53, 1.2, 4.45, .08, .12, 'w');
+
   // ================================================================ ROOMS, upstairs
   const Y = 3;
   // HITORI'S ROOM (x 8.6-12, z 5-10): the room from the title screen
@@ -408,11 +414,11 @@ function buildHouse() {
   // the photographs, taped to the wardrobe doors
   H3.polPos = [[10.28, Y + 1.52, -.08], [10.47, Y + 1.38, .1], [10.66, Y + 1.56, .05], [10.42, Y + 1.7, -.12]];
   ['pol1', 'pol2', 'pol3', 'pol4'].forEach((k, i) => { const [x, y, rz] = H3.polPos[i]; mb.with(M4.chain(M4.tr(x, y, 5.69), M4.rz(rz)), m => { m.box('paper', -.045, -.055, 0, .045, .055, .004, { tf: { s: k }, fit: 1 }); m.box('glassw', -.016, .045, .004, .016, .06, .006, { col: [.95, .9, .7, .1] }) }) });
-  mb.decal('poster', 9.65, Y + 1.55, 5.685, .42, .55, 's');
+  // (the glitched poster that hung here is in Hikari's room now: js/p2_v62.js)
   inter('wardrobe', [9.3, Y, 5.0, 10.9, Y + 2.15, 5.8], 'Polaroids', () => P2S.polaroids());
   // the desk against the east wall with the old computer; the chair is its own object so it can be pulled out
   mb.at(11.62, Y, 7.35, HP, m => MOD.desk(m)); hs(11.28, Y, 6.65, 11.94, Y + .76, 8.05);
-  mb.at(11.68, Y + .75, 7.25, HP, m => MOD.crt(m)); mb.at(11.4, Y + .75, 7.25, HP, m => MOD.keyboard(m)); mb.at(11.42, Y + .76, 7.72, HP, m => MOD.mouse(m)); mb.box('rug2', 11.36, Y + .75, 7.6, 11.5, Y + .753, 7.85, { skip: 'nsewb' });
+  mb.at(11.68, Y + .75, 7.25, HP, m => MOD.crt(m)); mb.at(11.4, Y + .75, 7.25, HP, m => MOD.keyboard(m)); mb.at(11.42, Y + .76, 7.72, HP + PI, m => MOD.mouse(m)); mb.box('rug2', 11.36, Y + .75, 7.6, 11.5, Y + .753, 7.85, { skip: 'nsewb' });
   mb.at(11.6, Y + .75, 6.85, 0, m => { m.box('spine', -.08, 0, -.11, .08, .03, .11, { col: [.3, .3, .5, 0] }); m.box('spine', -.07, .03, -.1, .07, .055, .1, { col: [.5, .3, .3, 0] }) });
   inter('computer', [11.2, Y + .7, 6.8, 11.95, Y + 1.25, 7.8], 'Computer', () => P2S.computer());
   H3.chair = { obj: lRaw(() => single(m => MOD.officeChair(m))), x: LM(10.95, 7.25, 3)[0], z: LM(10.95, 7.25, 3)[1], ry: -HP, solid: hs(10.7, Y, 7, 11.2, Y + .6, 7.5) }; H3.extra.chair = H3.chair.obj;
@@ -435,21 +441,30 @@ function buildHouse() {
   inter('games', [11.4, Y + .5, 9.2, 11.9, Y + .7, 9.5], 'Games', () => P2S.look('games'));
   mb.box('rug', 9.85, Y + .003, 6.3, 11.15, Y + .012, 8.4, { skip: 'nsewb', fit: 1 });
   mFrame(mb, 'poster2', 'n', 10.65, Y + 1.7, 9.94, .5, .65, 'darkplastic'); mFrame(mb, 'poster4', 'n', 9.55, Y + 1.75, 9.94, .42, .58, 'darkplastic'); mFrame(mb, 'poster5', 'n', 9.05, Y + 1.68, 9.94, .38, .52, 'darkplastic'); mFrame(mb, 'poster3', 'e', 8.66, Y + 1.75, 5.5, .4, .55, 'darkplastic');
-  mb.decal('wallswitch', 8.67, Y + 1.2, 7.05, .08, .12, 'e');
-  // the sister's room (x 8.6-12, z 0-5): almost empty. A mattress, boxes, pale squares where posters used to be
-  lStretch(() => mb.box('ghostwall', 8.66, Y + .1, .06, 11.94, Y + 2.8, .075, { skip: 'n', us: 1.4 })); mb.box('mattress', 10.2, Y, .2, 11.8, Y + .22, 2.2, { bev: .04, us: .8 }); hs(10.2, Y, .2, 11.8, Y + .25, 2.2);
-  mb.at(9.4, Y, 4.2, .2, m => MOD.boxes(m, 7, 2)); mb.at(10.1, Y, 4.3, -.1, m => { m.box('cardboard', -.3, 0, -.25, .3, .45, .25, { us: .5 }); m.box('boxname', -.25, .1, -.255, .25, .4, -.25, { fit: 1 }) }); hs(9, Y, 3.8, 10.45, Y + .9, 4.7);
-  mb.at(11.68, Y, 3.8, -HP, m => { m.box('walnut', -.8, 0, -.18, .8, 1.8, .18, { skip: 'n' }); for (const y of [.4, .9, 1.4]) m.box('walnut', -.78, y, -.16, .78, y + .02, .17) }); hs(11.5, Y, 3, 11.94, Y + 1.8, 4.6);
-  inter('sisbox', [9.75, Y, 3.95, 10.45, Y + .6, 4.6], 'Box', () => P2S.look('sisbox')); inter('sisroom', [10.2, Y, .2, 11.8, Y + .4, 2.2], 'Mattress', () => P2S.look('sisroom'));
+
+  // the sister's room (x 8.6-12, z 0-5): left as she left it
+  // (her furniture and things are in js/p2_decor.js, built straight onto the new plan)
   mWindow(mb, 'w', 11.94, Y + 1.5, 2.2, 1.1, 1.2, {});
   // the parents' room (x 0-4, z 4.5-10): a made bed and a dresser under dust sheets
-  lStretch(() => { for (const [x0, z0, x1, z1] of [[.06, 4.62, .075, 9.94], [3.925, 4.62, 3.94, 9.94], [.06, 4.62, 3.94, 4.635], [.06, 9.925, 3.94, 9.94]]) mb.box('wallp', x0, Y, z0, x1, Y + 2.8, z1, { us: 1.4 }) });
+  lStretch(() => { for (const [x0, z0, x1, z1] of [[.06, 4.62, 3.94, 4.635]]) mb.box('wallp', x0, Y, z0, x1, Y + 2.8, z1, { us: 1.4 }) });
+  // the wallpaper on the window walls, with holes where the windows are (it used to cover them, so they showed no city)
+  { const wv = LBOX([.06, Y, 4.62, .075, Y + 2.8, 9.94], true), nv = LBOX([.06, Y, 9.925, 3.94, Y + 2.8, 9.94], true), wy0 = Y + 1.0, wy1 = Y + 2.1;
+    lRaw(() => {
+      const holeZ = [12.5, 13.7], holeX = [2.15, 3.45];
+      mb.box('wallp', wv[0], Y, wv[2], wv[3], Y + 2.8, holeZ[0], { us: 1.4 }); mb.box('wallp', wv[0], Y, holeZ[1], wv[3], Y + 2.8, wv[5], { us: 1.4 });
+      mb.box('wallp', wv[0], Y, holeZ[0], wv[3], wy0, holeZ[1], { us: 1.4 }); mb.box('wallp', wv[0], wy1, holeZ[0], wv[3], Y + 2.8, holeZ[1], { us: 1.4 });
+      mb.box('wallp', nv[0], Y, nv[2], holeX[0], Y + 2.8, nv[5], { us: 1.4 }); mb.box('wallp', holeX[1], Y, nv[2], nv[3], Y + 2.8, nv[5], { us: 1.4 });
+      mb.box('wallp', holeX[0], Y, nv[2], holeX[1], Y + .9, nv[5], { us: 1.4 }); mb.box('wallp', holeX[0], Y + 2.1, nv[2], holeX[1], Y + 2.8, nv[5], { us: 1.4 }) }) }
+  // the wallpaper on the door wall, with the doorway left open (it used to paper right over the parents' door)
+  { const e = LBOX([3.925, Y, 4.62, 3.94, Y + 2.8, 9.94], true), pd = { z0: 12.82, z1: 12.82 + DOORW };
+    lRaw(() => { mb.box('wallp', e[0], Y, e[2], e[3], Y + 2.8, pd.z0, { us: 1.4 }); mb.box('wallp', e[0], Y, pd.z1, e[3], Y + 2.8, e[5], { us: 1.4 }); mb.box('wallp', e[0], Y + DOORH + .03, pd.z0, e[3], Y + 2.8, pd.z1, { us: 1.4 }) }) }
   mb.at(1.09, Y, 7.4, -HP, m => MOD.bed(m, 1.6, 2.05, 'stripes', 'trimw')); hs(.06, Y, 6.6, 2.15, Y + .6, 8.2);
   for (const z of [6.3, 8.5]) { mb.at(.3, Y, z, -HP, m => { m.box('vanity', -.24, 0, -.2, .24, .55, .2, { fit: 1 }); m.box('trimw', -.25, .55, -.21, .25, .58, .21) }); mb.at(.3, Y + .58, z, 0, m => MOD.tableLamp(m, .48)); hs(.08, Y, z - .24, .52, Y + .6, z + .24) }
   mb.at(2.6, Y, 4.92, PI, m => { m.box('vanity', -.6, 0, -.24, .6, .9, .24, { fit: 1 }); m.box('trimw', -.62, .9, -.26, .62, .93, .26); for (const x of [-.3, .3]) { m.lathe('lamp', [[.05, .93], [.04, 1.15]], { cx: x, seg: 8 }); m.lathe('lamp', [[.09, 1.15], [.06, 1.28]], { cx: x, seg: 10 }) } }); hs(1.98, Y, 4.66, 3.22, Y + .95, 5.18);
   mFrame(mb, 'portrait', 's', 2.6, Y + 1.75, 4.65, .6, .75, 'walnut');
   for (const x of [1.3, 1.8]) { mb.at(x, Y, 5.05, 0, m => MOD.chair(m, 'oak', 'beige')); mb.box('dustsheet', x - .27, Y + .05, 4.8, x + .27, Y + 1.0, 5.33, { bev: .08 }); hs(x - .25, Y, 4.82, x + .25, Y + 1, 5.3) }
-  mb.at(3.6, Y, 9.55, 0, m => { m.lathe('trimw', [[.16, 0], [.12, .06], [.07, .1], [.06, .9], [.14, .96], [.14, 1.0]], { seg: 14 }); m.lathe('porcelain', [[.04, 1.0], [.09, 1.1], [.07, 1.3], [.03, 1.36]], { seg: 12 }) }); hs(3.42, Y, 9.37, 3.78, Y + 1.36, 9.73);
+  // the vase on its stand: in the far corner of the parents' room now (it stood right inside their door)
+  lRaw(() => { mb.at(.42, Y, 6.25, 0, m => { m.lathe('trimw', [[.16, 0], [.12, .06], [.07, .1], [.06, .9], [.14, .96], [.14, 1.0]], { seg: 14 }); m.lathe('porcelain', [[.04, 1.0], [.09, 1.1], [.07, 1.3], [.03, 1.36]], { seg: 12 }) }); hs(.24, Y, 6.07, .6, Y + 1.36, 6.43) });
   inter('parents', [.2, Y, 6.6, 2.1, Y + .7, 8.2], 'Bed', () => P2S.look('parents'));
   mWindow(mb, 'e', .06, Y + 1.55, 9.1, 1.1, 1.1, { blinds: 1 }); mWindow(mb, 'n', 2, Y + 1.5, 9.94, 1.2, 1.1, { blinds: 1 });
   mFrame(mb, 'painting', 'w', 8.54, Y + 1.7, 4.4, 1.1, .8, 'walnut'); mFrame(mb, 'painting', 'w', 3.92, Y + 1.7, 7.4, 1.2, .8, 'walnut');
@@ -462,11 +477,12 @@ function buildHouse() {
   lStretch(() => mb.box('trimw', 8.48, 2.1, 4.7, 8.72, 2.8, 8.1));
   door('hitori', 8.6, 6, 1, 'z', -1, { name: 'Door', locked: () => P2S.hitoriDoorLocked() }); door('sister', 8.6, 2, 1, 'z', -1, { name: 'Door', locked: () => P2S.sisterLocked() });
   door('ubath', 4, 1.5, 1, 'z', 1, { name: 'Bathroom' }); door('parents', 4, 9.05, 1, 'z', 1, { name: 'Door' });
+  lRaw(() => doorN('back', H3.backGap[0], 0, 0, 'x', -1, { name: 'Back door' }));
   for (const d of H3.doors) { d.obj = d.mb.build() }
   H3.settled = lSettle(mb); H3.world = mb.build(); H3.ext = ext.build(); H3.ext.vis = false;
   for (const k in H3.extra) if (H3.extra[k] instanceof MB) H3.extra[k] = H3.extra[k].build();
   LAYOUT.on = false;
-  H3.solids.push({ x0: -1, y0: -5, z0: -1, x1: 0, y1: 10, z1: HOUSE_D + 1 }, { x0: HOUSE_W, y0: -5, z0: -1, x1: HOUSE_W + 1, y1: 10, z1: HOUSE_D + 1 }, { x0: -1, y0: -5, z0: -1, x1: HOUSE_W + 1, y1: 10, z1: 0 }, { x0: -1, y0: -5, z0: HOUSE_D, x1: HOUSE_W + 1, y1: 10, z1: HOUSE_D + 1 });
+  H3.solids.push({ x0: -1, y0: -5, z0: -7.5, x1: 0, y1: 10, z1: HOUSE_D + 1 }, { x0: HOUSE_W, y0: -5, z0: -7.5, x1: HOUSE_W + 1, y1: 10, z1: HOUSE_D + 1 }, { x0: -1, y0: -5, z0: -7.5, x1: HOUSE_W + 1, y1: 10, z1: -6.5 }, { x0: -1, y0: -5, z0: HOUSE_D, x1: HOUSE_W + 1, y1: 10, z1: HOUSE_D + 1 });
 }
 // the floor under you: the stairs ramp from y 0 at z 9 to y 3 at z 4; elsewhere you're on whichever floor you were on
 function houseFloor(x, z, y) {
