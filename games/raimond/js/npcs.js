@@ -19,7 +19,7 @@ Object.assign(NPC_DLG, {
   morrow: () => !F_('ml1') ? N('morrow', ['Hermit Morrow:neutral|Dark is the only teacher this wood has. Keep your light close.', 'Hermit Morrow:worried|My lamps keep going out. Three posts around the wood. Would you relight them? There is a match on the post by the marsh.'], () => flag('ml1'))
     : F_('lamps3') && !F_('ml_done') ? N('morrow', ['Hermit Morrow:happy|All three! The wood looks kinder already.', 'Hermit Morrow:neutral|Here. A lantern. It keeps the dark at arm\'s length.'], () => { flag('ml_done'); reward(25, 'lantern', 15) })
     : N('morrow', ['Hermit Morrow:neutral|Three lamp posts. Strike the match, light the wick, move on.']),
-  vesper: () => N('vesper', ['Lady Vesper:sad|I wait for someone who never arrives. His name has slipped away from me.', 'Lady Vesper:worried|Does it slip from you too?', 'Hitori:neutral|...Yes.'], null),
+  vesper: () => N('vesper', ['Lady Vesper:sad|I wait for someone who never arrives. The tea goes cold, so I make more.', 'Lady Vesper:neutral|The fountain sings at midnight, you know. You should hear it once.', 'Hitori:neutral|...Maybe.'], null),
   rattles: () => N('rattles', ['Ser Rattles:laugh|Ha! I have no guts and I\'m STILL fighting!', 'Ser Rattles:neutral|The throne awaits. Mind the shadows.']),
   lou: () => N('lou', ['Lifeguard Lou:angry|NO RUNNING by the water!!', 'Lifeguard Lou:neutral|...Okay, running\'s fine if it\'s crabs. The pier is at the east end of the beach. Don\'t look down.']),
   coco: () => !F_('cc1') ? N('coco', ['Coco:happy|Ice cream! Free for friends today!', 'Coco:sad|...Except half my cones blew away. Three of them, somewhere on the boardwalk and the beach.', 'Hitori:neutral|I\'ll look.'], () => flag('cc1'))

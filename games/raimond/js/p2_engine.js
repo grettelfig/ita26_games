@@ -6,7 +6,7 @@
 const P2W = 640, P2H = 360;
 const GLC = document.createElement('canvas'); GLC.width = P2W; GLC.height = P2H;
 let gl = null, GP = null, MIRFB = null;
-const NL = 8;   // lights per frame
+const NL = 12;   // lights per frame
 const P2VS = `
 attribute vec3 aP; attribute vec3 aN; attribute vec2 aU; attribute vec4 aC; attribute vec2 aBI; attribute float aBW;
 uniform mat4 uVP; uniform mat4 uM; uniform float uSnap; uniform mat4 uB[15]; uniform float uSkin;
@@ -27,22 +27,28 @@ precision mediump float;
 #endif
 uniform sampler2D uT; uniform vec3 uFog; uniform vec2 uFogR; uniform float uGlow; uniform vec3 uAmb; uniform vec3 uCam;
 uniform vec3 uLP[${NL}]; uniform vec3 uLC[${NL}]; uniform float uLR[${NL}];
-uniform vec4 uClip; uniform float uMir; uniform vec2 uRes; uniform float uSpec; uniform vec4 uTint;
+uniform vec4 uClip; uniform float uMir; uniform vec2 uRes; uniform float uSpec; uniform vec4 uTint; uniform float uStip; uniform float uAO;
 varying vec2 vU; varying vec3 vW; varying vec3 vN; varying vec4 vC; varying float vD;
 float bayer(vec2 p) { vec2 q = mod(floor(p), 4.0); float a = mod(q.x, 2.0), b = mod(q.y, 2.0), c = floor(q.x / 2.0), d = floor(q.y / 2.0);
   return (4.0 * mod(a * 2.0 + b * 3.0, 4.0) + mod(c * 2.0 + d * 3.0, 4.0)) / 16.0; }
 void main() {
   if (dot(vW, uClip.xyz) < uClip.w) discard;
   vec4 t = uMir > 0.5 ? texture2D(uT, gl_FragCoord.xy / uRes) : texture2D(uT, vU);
+  if (uStip > 0.5) { float fs = clamp((vD - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0); gl_FragColor = vec4(0.0, 0.0, 0.0, t.a * 0.42 * (1.0 - fs)); return; }   // soft shadows on the floor: blended, darkening what's under them
   if (t.a < 0.5) discard;
   vec3 c;
-  if (uMir > 0.5) { c = t.rgb * vec3(0.82, 0.86, 0.9) + 0.03; }
+  if (uMir > 1.5) { c = t.rgb * vec3(0.93, 0.95, 1.0) + vec3(0.004, 0.006, 0.016); }   // a window: the city behind it, drawn first this frame
+  else if (uMir > 0.5) { c = t.rgb * vec3(0.82, 0.86, 0.9) + 0.03; }
   else {
     vec3 n = normalize(vN); vec3 v = uCam - vW; if (dot(n, v) < 0.0) n = -n; vec3 vn = normalize(v);
     vec3 l = uAmb * (0.78 + 0.22 * n.y); vec3 sp = vec3(0.0);
     for (int i = 0; i < ${NL}; i++) { vec3 d = uLP[i] - vW; float dist = max(length(d), 0.001); vec3 dn = d / dist; float att = clamp(1.0 - dist / uLR[i], 0.0, 1.0); att *= att;
       float nd = max(dot(n, dn), 0.0); l += uLC[i] * att * (0.22 + 0.78 * nd);
       if (uSpec > 0.0) sp += uLC[i] * att * nd * pow(max(dot(n, normalize(dn + vn)), 0.0), 28.0); }
+    // walls and the sides of furniture are a little darker where they meet the floor and the ceiling
+    if (uAO > 0.0 && abs(n.y) < 0.5) { float h = mod(vW.y + 0.001, 3.0); l *= mix(1.0, (0.74 + 0.26 * smoothstep(0.0, 0.5, h)) * (0.86 + 0.14 * smoothstep(2.8, 2.25, h)), uAO); }
+    l = l / (1.0 + 0.18 * max(max(l.r, l.g), l.b));   // bright lamps roll off instead of burning out
+    l *= 1.22;
     vec3 lit = mix(l * vC.rgb, vC.rgb, vC.a);
     c = t.rgb * lit * uGlow + sp * uSpec;
   }
@@ -51,6 +57,55 @@ void main() {
   c = floor(c * 31.0 + bayer(gl_FragCoord.xy)) / 31.0;
   gl_FragColor = vec4(c, 1.0);
 }`;
+// ---- the finishing pass: glow round bright things, darker corners, film grain, a little colour fringing at the edges,
+// warm highlights and cool shadows; then back down to the 15-bit dithered look. Turn off with P2O.fx = 0.
+const POSTFS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D uT; uniform vec2 uRes; uniform float uTime; uniform float uStress; varying vec2 vU;
+float bayer(vec2 p) { vec2 q = mod(floor(p), 4.0); float a = mod(q.x, 2.0), b = mod(q.y, 2.0), c = floor(q.x / 2.0), d = floor(q.y / 2.0);
+  return (4.0 * mod(a * 2.0 + b * 3.0, 4.0) + mod(c * 2.0 + d * 3.0, 4.0)) / 16.0; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  vec2 px = 1.0 / uRes, cc = vU - 0.5; float r2 = dot(cc, cc);
+  vec2 off = cc * (0.0025 + 0.006 * uStress) * (0.3 + r2 * 3.0);
+  vec3 c = vec3(texture2D(uT, vU + off).r, texture2D(uT, vU).g, texture2D(uT, vU - off).b);
+  vec3 g = vec3(0.0);
+  for (int i = 0; i < 8; i++) { float a = float(i) * 0.7854; vec2 d = vec2(cos(a), sin(a));
+    g += max(texture2D(uT, vU + d * px * 3.0).rgb - 0.72, 0.0) + 0.6 * max(texture2D(uT, vU + d * px * 6.0).rgb - 0.72, 0.0); }
+  c += g * 0.12;
+  float lum = dot(c, vec3(0.3, 0.59, 0.11));
+  c = mix(c, c * vec3(1.05, 1.0, 0.92), smoothstep(0.25, 0.9, lum)) + vec3(-0.004, 0.0, 0.012) * (1.0 - lum);
+  c = mix(vec3(lum), c, 1.0 - 0.25 * uStress);
+  c *= 1.0 - (0.26 + 0.3 * uStress) * smoothstep(0.14, 0.7, r2 * 1.5);
+  c += (hash(floor(vU * uRes) + uTime) - 0.5) * (0.03 + 0.04 * uStress);
+  c = floor(clamp(c, 0.0, 1.0) * 31.0 + bayer(gl_FragCoord.xy)) / 31.0;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+let POST = null;
+function postInit() {
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, 'attribute vec2 aQ; varying vec2 vU; void main() { vU = aQ * 0.5 + 0.5; gl_Position = vec4(aQ, 0.0, 1.0); }')); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, POSTFS)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(p)); return }
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, P2W, P2H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, P2W, P2H);   /* depth+stencil is 24-bit depth almost everywhere; 16-bit made close surfaces flicker through each other */
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rb);
+  const okFB = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); if (!okFB) return;
+  const q = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, q); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  POST = { p, fb, tex, q, aQ: gl.getAttribLocation(p, 'aQ'), uT: gl.getUniformLocation(p, 'uT'), uRes: gl.getUniformLocation(p, 'uRes'), uTime: gl.getUniformLocation(p, 'uTime'), uStress: gl.getUniformLocation(p, 'uStress') };
+}
+const postOn = () => POST && !(typeof P2O != 'undefined' && P2O.fx === 0);
+function postDraw(stress) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, P2W, P2H); gl.useProgram(POST.p); gl.disable(gl.DEPTH_TEST);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  gl.bindBuffer(gl.ARRAY_BUFFER, POST.q); gl.enableVertexAttribArray(POST.aQ); gl.vertexAttribPointer(POST.aQ, 2, gl.FLOAT, false, 0, 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, POST.tex); gl.uniform1i(POST.uT, 0); gl.uniform2f(POST.uRes, P2W, P2H); gl.uniform1f(POST.uTime, (performance.now() / 50 | 0) % 997); gl.uniform1f(POST.uStress, stress || 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6); gl.disableVertexAttribArray(POST.aQ); gl.enable(gl.DEPTH_TEST); gl.useProgram(GP.p);
+}
 function glInit() {
   if (gl) return true;
   gl = GLC.getContext('webgl', { antialias: false, preserveDrawingBuffer: true }) || GLC.getContext('experimental-webgl');
@@ -60,16 +115,17 @@ function glInit() {
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p));
   gl.useProgram(p);
   GP = { p }; for (const a of ['aP', 'aN', 'aU', 'aC', 'aBI', 'aBW']) GP[a] = gl.getAttribLocation(p, a);
-  for (const u of ['uVP', 'uM', 'uAmb', 'uSnap', 'uT', 'uFog', 'uFogR', 'uGlow', 'uCam', 'uClip', 'uMir', 'uRes', 'uSpec', 'uTint', 'uSkin']) GP[u] = gl.getUniformLocation(p, u);
+  for (const u of ['uVP', 'uM', 'uAmb', 'uSnap', 'uT', 'uFog', 'uFogR', 'uGlow', 'uCam', 'uClip', 'uMir', 'uRes', 'uSpec', 'uTint', 'uSkin', 'uStip', 'uAO']) GP[u] = gl.getUniformLocation(p, u);
   GP.uLP = gl.getUniformLocation(p, 'uLP'); GP.uLC = gl.getUniformLocation(p, 'uLC'); GP.uLR = gl.getUniformLocation(p, 'uLR'); GP.uB = gl.getUniformLocation(p, 'uB');
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   gl.uniform2f(GP.uRes, P2W, P2H); gl.uniform4f(GP.uClip, 0, 0, 0, -1e9); gl.uniform4f(GP.uTint, 0, 0, 0, 0); gl.uniform1f(GP.uSkin, 0);
   // the mirror's render target
   const mt = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, mt); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, P2W, P2H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-  const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, P2W, P2H);
-  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, mt, 0); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+  const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, P2W, P2H);   /* depth+stencil is 24-bit depth almost everywhere; 16-bit made close surfaces flicker through each other */
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, mt, 0); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rb);
   MIRFB = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE ? { fb, tex: mt } : null; gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  try { postInit() } catch (e) { console.warn(e); POST = null } gl.useProgram(GP.p);
   return true;
 }
 // ---- matrices (column-major, like GL)
@@ -121,12 +177,16 @@ class MB {
   }
   quad(t, a, b, c, d, uv = [[0, 0], [1, 0], [1, 1], [0, 1]], col = [1, 1, 1, 0]) {
     const n = V3.norm(V3.cross(V3.sub(b, a), V3.sub(c, a)));
+    if (MB.reg) { const k = mbLift(this, t, [a, b, c, d], n); if (k) { const o = V3.mul(n, k); a = V3.add(a, o); b = V3.add(b, o); c = V3.add(c, o); d = V3.add(d, o) } }
     for (const i of [0, 1, 2, 0, 2, 3]) this.push(t, [a, b, c, d][i], n, uv[i], col);
   }
   // an axis-aligned box. o.us = metres per texture repeat; o.fit = stretch the texture over each face;
   // o.skip = faces to leave out ('t','b','n','s','e','w'); o.tf = {face: texture}; o.col = tint [r,g,b,emissive];
   // o.bev = bevel the top edges by this much (table tops, counters, cushions)
   box(t, x0, y0, z0, x1, y1, z1, o = {}) {
+    const cid0 = this.cid; if (!cid0) this.cid = ++MB.n; try { this.boxIn(t, x0, y0, z0, x1, y1, z1, o) } finally { this.cid = cid0 }
+  }
+  boxIn(t, x0, y0, z0, x1, y1, z1, o = {}) {
     const us = o.us || 1, col = o.col || [1, 1, 1, 0], sk = o.skip || '', fit = o.fit, tf = o.tf || {}, b = Math.min(o.bev || 0, (x1 - x0) / 2.2, (z1 - z0) / 2.2, (y1 - y0) / 2.2), yt = y1 - b;
     const F = (k, pts, uv) => { if (sk.includes(k)) return; this.quad(tf[k] || t, ...pts, fit ? [[0, 0], [1, 0], [1, 1], [0, 1]] : uv, col) };
     F('s', [[x0, yt, z1], [x1, yt, z1], [x1, y0, z1], [x0, y0, z1]], [[x0 / us, (y1 - yt) / us], [x1 / us, (y1 - yt) / us], [x1 / us, (y1 - y0) / us], [x0 / us, (y1 - y0) / us]]);
@@ -211,7 +271,49 @@ class MB {
     return { groups, M: M4ID, vis: true };
   }
 }
-let DRAWMIR = false;   // true while the mirror's reflection is being drawn (mirrors themselves are skipped)
+// ---- no two flat faces in the same place: when a face is laid exactly over an earlier one facing the same way (a picture flush on a
+// wall, a drawer front on a cabinet, a trim on a door frame), it is lifted off by a millimetre or two, so the two textures don't
+// flicker through each other. Only while the house is being built (MB.reg is a map of planes then); everything else is left alone.
+MB.n = 0; MB.reg = null; MB.lifted = 0;
+function mbLift(mb, t, pts, n) {
+  const M = mb.M, W = M ? pts.map(p => M4.pt(M, p)) : pts, N = M ? V3.norm(M4.dir(M, n)) : n;
+  let ax = -1; for (let i = 0; i < 3; i++) if (Math.abs(N[i]) > .999) ax = i; if (ax < 0) return 0;
+  const sg = N[ax] > 0 ? 1 : -1, u = (ax + 1) % 3, v = (ax + 2) % 3, pl = W[0][ax];
+  const r = [Math.min(...W.map(p => p[u])), Math.max(...W.map(p => p[u])), Math.min(...W.map(p => p[v])), Math.max(...W.map(p => p[v]))];
+  if (r[1] - r[0] < .004 || r[3] - r[2] < .004) return 0;
+  const id = mb.cid || ('q' + (++MB.n)), key = b => ax + '|' + sg + '|' + b, b0 = Math.round(pl * 1000);
+  let top = null;
+  for (let b = b0 - 2; b <= b0 + 2; b++) { const L = MB.reg.get(key(b)); if (!L) continue;
+    for (const e of L) { if (e.id === id || Math.abs(e.pl - pl) > .0015) continue;
+      if (Math.min(r[1], e.r[1]) - Math.max(r[0], e.r[0]) > .004 && Math.min(r[3], e.r[3]) - Math.max(r[2], e.r[2]) > .004) if (top == null || (e.pl - pl) * sg > (top - pl) * sg) top = e.pl } }
+  let lift = 0; if (top != null) { lift = (top - pl) * sg + .0016; MB.lifted++ }
+  const pl2 = pl + sg * lift, b2 = Math.round(pl2 * 1000), L2 = MB.reg.get(key(b2)) || (MB.reg.set(key(b2), []), MB.reg.get(key(b2)));
+  L2.push({ id, pl: pl2, r }); if (!mb.cid) mb.qid = id;
+  return lift ? lift * (M ? 1 / Math.max(1e-6, V3.len(M4.dir(M, n))) : 1) : 0;
+}
+let DRAWMIR = false;
+// ---- the city outside: drawn first, far away (its own long projection, its own haze), copied into a texture the windows
+// show (so every window looks out at the right bit of city from wherever you stand), then the house is drawn over it
+const CITY = { obj: null, movers: [], tex: null, ready: false };
+function drawCity(scn, V, cam, f) {
+  const C = scn.city, Pc = M4.persp(CAM3.fov * (typeof P2O != 'undefined' ? P2O.fov / 66 : 1), P2W / P2H, .5, 3000);
+  gl.uniformMatrix4fv(GP.uVP, false, M4.mul(Pc, V)); gl.uniform3fv(GP.uCam, cam); gl.uniform3fv(GP.uFog, C.fog); gl.uniform2fv(GP.uFogR, C.fogR); gl.uniform3fv(GP.uAmb, C.amb); gl.uniform1f(GP.uAO, 0); gl.uniform1f(GP.uSnap, 0);   /* no vertex wobble on the far city */
+  setLights({ lights: C.lights || [] }, cam);
+  gl.clearColor(C.fog[0], C.fog[1], C.fog[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (C.tint) CITY.obj.tint = C.tint; else CITY.obj.tint = null;
+  drawObj(CITY.obj); for (const m of CITY.movers) drawObj(m.obj); if (typeof LIFE != 'undefined') { for (const c of LIFE.cars) drawObj(c.obj); if (LIFE.obj) drawObj(LIFE.obj); if (LIFE.street) drawObj(LIFE.street); if (LIFE.flick) drawObj(LIFE.flick) } drawShadows();
+  if (!CITY.tex) { CITY.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, CITY.tex); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v) }
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, CITY.tex); gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 0, 0, P2W, P2H, 0); CITY.ready = true;
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.uniform3fv(GP.uFog, f); gl.uniform2fv(GP.uFogR, scn.fogR || [4, 14]); gl.uniform3fv(GP.uAmb, scn.amb || [.2, .2, .2]); gl.uniform1f(GP.uAO, scn.ao || 0); gl.uniform1f(GP.uSnap, scn.snap ?? .5);
+}
+// the soft floor shadows are drawn after everything else, blended over the floor (no depth writes), so they never flicker
+const SHADOWQ = []; let SHADOWPASS = false;
+function drawShadows() {
+  if (!SHADOWQ.length) return; SHADOWPASS = true; gl.enable(gl.BLEND); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.uniform1f(GP.uStip, 1);
+  for (const [o, g] of SHADOWQ) drawObj({ vis: true, M: o.M, groups: [g] });
+  gl.uniform1f(GP.uStip, 0); gl.depthMask(true); gl.disable(gl.BLEND); SHADOWPASS = false; SHADOWQ.length = 0;
+}   // true while the mirror's reflection is being drawn (mirrors themselves are skipped)
 function drawObj(o) {
   if (!o || !o.vis) return; if (o.mirror && DRAWMIR) return;
   if (o.groupsOf) { for (const s of o.groupsOf()) drawObj(s); return }
@@ -225,8 +327,8 @@ function drawObj(o) {
     gl.enableVertexAttribArray(GP.aU); gl.vertexAttribPointer(GP.aU, 2, gl.FLOAT, false, st, 24);
     gl.enableVertexAttribArray(GP.aC); gl.vertexAttribPointer(GP.aC, 4, gl.FLOAT, false, st, 32);
     gl.activeTexture(gl.TEXTURE0);
-    const mir = o.mirror && o.mirTex && g.t == o.mirror; gl.uniform1f(GP.uMir, mir ? 1 : 0);
-    gl.bindTexture(gl.TEXTURE_2D, mir ? o.mirTex : texGL(g.t)); gl.uniform1i(GP.uT, 0); gl.uniform1f(GP.uSpec, SPEC[g.t] || 0);
+    const mir = o.mirror && o.mirTex && g.t == o.mirror, cv = g.t == 'cityview' && CITY.ready && !DRAWMIR; gl.uniform1f(GP.uMir, cv ? 2 : mir ? 1 : 0);
+    gl.bindTexture(gl.TEXTURE_2D, cv ? CITY.tex : mir ? o.mirTex : texGL(g.t == 'cityview' ? 'night' : g.t)); gl.uniform1i(GP.uT, 0); gl.uniform1f(GP.uSpec, SPEC[g.t] || 0); const stip = g.t == 'blobshadow'; if (stip && !SHADOWPASS) { SHADOWQ.push([o, g]); continue }
     gl.drawArrays(gl.TRIANGLES, 0, g.n);
   }
   gl.uniform1f(GP.uMir, 0); if (o.tint) gl.uniform4f(GP.uTint, 0, 0, 0, 0);
@@ -254,7 +356,7 @@ function camV() {
   const sx = CAM3.shake ? (Math.random() - .5) * CAM3.shake * .02 : 0, sy = CAM3.shake ? (Math.random() - .5) * CAM3.shake * .02 : 0;
   return M4.chain(M4.rz(-CAM3.roll), M4.rx(-CAM3.pitch - sy), M4.ry(-CAM3.yaw - sx), M4.tr(-CAM3.x, -CAM3.y, -CAM3.z));
 }
-const camP = () => M4.persp(CAM3.fov, P2W / P2H, .04, 60);
+const camP = () => M4.persp(CAM3.fov * (typeof P2O != 'undefined' ? P2O.fov / 66 : 1), P2W / P2H, .04, 60);
 function camVP() { return M4.mul(camP(), camV()) }
 // the camera's own frame in the world (for things held in front of it)
 function camWorld() { return M4.chain(M4.tr(CAM3.x, CAM3.y, CAM3.z), M4.ry(CAM3.yaw), M4.rx(CAM3.pitch), M4.rz(CAM3.roll)) }
@@ -272,7 +374,7 @@ function setLights(scn, cam) {
 function render3D(scn) {
   if (!glInit()) return false;
   const f = scn.fog || [0, 0, 0];
-  gl.uniform3fv(GP.uAmb, scn.amb || [.2, .2, .2]); gl.uniform1f(GP.uSnap, scn.snap ?? .5); gl.uniform3fv(GP.uFog, f); gl.uniform2fv(GP.uFogR, scn.fogR || [4, 14]); gl.uniform1f(GP.uGlow, scn.glow || 1);
+  gl.uniform3fv(GP.uAmb, scn.amb || [.2, .2, .2]); gl.uniform1f(GP.uSnap, scn.snap ?? .5); gl.uniform3fv(GP.uFog, f); gl.uniform2fv(GP.uFogR, scn.fogR || [4, 14]); gl.uniform1f(GP.uGlow, scn.glow || 1); gl.uniform1f(GP.uAO, scn.ao || 0);
   const P = camP(), V = camV(), cam = [CAM3.x, CAM3.y, CAM3.z];
   // ---- the nearest mirror you're facing gets a reflection
   for (const m of scn.mirrors || []) m.obj.mirTex = null;
@@ -284,17 +386,20 @@ function render3D(scn) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, MIRFB.fb); gl.viewport(0, 0, P2W, P2H); gl.clearColor(f[0], f[1], f[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(GP.uVP, false, M4.chain(P, V, R)); gl.uniform3fv(GP.uCam, rc); setLights(scn, rc);
       gl.uniform4f(GP.uClip, best.n[0], best.n[1], best.n[2], d0 + .004); DRAWMIR = true;
-      for (const o of scn.objs) drawObj(typeof o == 'function' ? o() : o); for (const o of scn.mirExtra || []) drawObj(typeof o == 'function' ? o() : o);
+      for (const o of scn.objs) drawObj(typeof o == 'function' ? o() : o); for (const o of scn.mirExtra || []) drawObj(typeof o == 'function' ? o() : o); drawShadows();
       DRAWMIR = false; gl.uniform4f(GP.uClip, 0, 0, 0, -1e9); gl.bindFramebuffer(gl.FRAMEBUFFER, null); best.obj.mirTex = MIRFB.tex;
     }
   }
-  // ---- the room
+  // ---- the room (into a texture when the finishing pass is on)
+  const post = postOn(); gl.bindFramebuffer(gl.FRAMEBUFFER, post ? POST.fb : null);
   gl.viewport(0, 0, P2W, P2H); gl.clearColor(f[0], f[1], f[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  CITY.ready = false; if (scn.city && CITY.obj) drawCity(scn, V, cam, f);
   LASTVP = M4.mul(P, V); gl.uniformMatrix4fv(GP.uVP, false, LASTVP); gl.uniform3fv(GP.uCam, cam); setLights(scn, cam);
-  for (const o of scn.objs) drawObj(typeof o == 'function' ? o() : o);
+  for (const o of scn.objs) drawObj(typeof o == 'function' ? o() : o); drawShadows();
   // ---- whatever is in your hands is drawn last, over everything, so it never sinks into a wall
   LASTVPVM = scn.vmFov ? M4.mul(M4.persp(scn.vmFov, P2W / P2H, .04, 60), V) : LASTVP;
-  if (scn.vm && scn.vm.length) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.uniformMatrix4fv(GP.uVP, false, LASTVPVM); for (const o of scn.vm) drawObj(typeof o == 'function' ? o() : o) }
+  if (scn.vm && scn.vm.length) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.uniformMatrix4fv(GP.uVP, false, LASTVPVM); gl.uniform3fv(GP.uAmb, (scn.amb || [.2, .2, .2]).map(a => Math.min(.5, a * 1.35 + .06)));   /* a little fill light on your own hands, so they don't go black away from the ceiling light */ for (const o of scn.vm) drawObj(typeof o == 'function' ? o() : o) }
+  if (post) postDraw(scn.stress);
   return true;
 }
 // a second pass drawn over the 2D layer: only the parts of objs that are in front of depthObjs (a thumb over a phone screen)
@@ -318,7 +423,7 @@ function p2Unlock() { P2.wantLock = false; if (document.pointerLockElement === C
 function solidHit(x, z, y, r, sol) { for (const b of sol) { if (b.off) continue; if (y + .3 > b.y1 || y + 1.7 < b.y0) continue; if (x + r > b.x0 && x - r < b.x1 && z + r > b.z0 && z - r < b.z1) return b } return null }
 function p2Walk(scn, dt, canMove = true) {
   const kf = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), ks = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), kt = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
-  CAM3.yaw -= P2MOUSE.dx * .0026; CAM3.pitch = clamp(CAM3.pitch - P2MOUSE.dy * .0026, -1.5, 1.35); P2MOUSE.dx = P2MOUSE.dy = 0;
+  const sens = .0026 * (typeof P2O != 'undefined' ? P2O.sens : 1), inv = typeof P2O != 'undefined' && P2O.invert ? -1 : 1; CAM3.yaw -= P2MOUSE.dx * sens; CAM3.pitch = clamp(CAM3.pitch - P2MOUSE.dy * sens * inv, -1.5, 1.35); P2MOUSE.dx = P2MOUSE.dy = 0;
   if (kt) CAM3.yaw -= kt * 2.1 * dt;
   if (keys.PageUp || keys.KeyR) CAM3.pitch = Math.min(1.35, CAM3.pitch + 1.6 * dt); if (keys.PageDown || keys.KeyV) CAM3.pitch = Math.max(-1.5, CAM3.pitch - 1.6 * dt);
   let mv = 0;
@@ -331,7 +436,7 @@ function p2Walk(scn, dt, canMove = true) {
     mv = 1; PL3.step += sp; if (PL3.step > .62) { PL3.step = 0; scn.onStep && scn.onStep() }
   }
   PL3.moving = mv; PL3.bob = mv ? PL3.bob + dt * 8.5 : PL3.bob * .85;
-  CAM3.x = PL3.x; CAM3.z = PL3.z; CAM3.y = PL3.y + PL3.eye + Math.sin(PL3.bob) * .022 * (mv ? 1 : 0);
+  if (typeof p2CamFx == 'function') p2CamFx(mv); else { CAM3.x = PL3.x; CAM3.z = PL3.z; CAM3.y = PL3.y + PL3.eye + Math.sin(PL3.bob) * .022 * (mv ? 1 : 0) }
 }
 // what are you looking at? a ray from the eye against interactables (boxes), stopped by walls
 function rayBox(o, d, b) { let t0 = 0, t1 = 1e9; for (let i = 0; i < 3; i++) { const inv = 1 / (d[i] || 1e-9); let a = (b[i] - o[i]) * inv, c = (b[i + 3] - o[i]) * inv; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return null } return t0 }
@@ -343,7 +448,7 @@ function lookAt3(scn, reach = 1.9) {
 }
 // ---- 2D overlay text with a choice of font and an outline (subtitles)
 const P2FONT2 = FONT;   // day two keeps the normal hand-written font
-const CRAZY = '"Synchronicity Crazy", ' + FONT;   // the shaky font, for when it all comes apart
+const CRAZY = FONT;   // v73: no more shaky font
 function ptxt(s, x, y, c = '#fff', al = 'left', sz = 8, font = FONT, ol = '#000') {
   X.save(); X.setTransform(1, 0, 0, 1, 0, 0); X.font = Math.round(sz * U) + 'px ' + font; X.textAlign = al; X.textBaseline = 'top';
   if (ol) { X.lineWidth = Math.max(2, U * .9); X.lineJoin = 'round'; X.strokeStyle = ol; X.strokeText(s, Math.round(x * U), Math.round(y * U)) }

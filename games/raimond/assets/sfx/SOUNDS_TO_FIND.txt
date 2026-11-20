@@ -1,0 +1,46 @@
+SOUNDS TO FIND
+==============
+ALL FOUND (v56): your recordings are built into the game (js/p2_sfxdata.js). Footsteps were cut into single
+steps (6 each for wood, tile and carpet), the tap and the clock were made to loop. Anything dropped in this folder
+under the same names still takes over.
+
+Drop each file in this folder with exactly the name below (.ogg, .mp3 or .wav). The game picks it up on its own
+and stops using its generated stand-in. For sounds that repeat a lot (footsteps, creaks, knocks) you can add
+variants: name_2, name_3, name_4. The game picks one at random each time, so it doesn't sound like a loop.
+
+Free sources: freesound.org (filter: Creative Commons 0), pixabay.com/sound-effects, the Sonniss GDC bundles.
+If a sound is CC-BY, note the author so it can go in the credits.
+
+1. footstep_wood   (+ footstep_wood_2, _3, _4)
+   Her own steps on wooden floors: halls, stairs, bedrooms.
+   Search: "footstep wood floor single", "footsteps socks wooden floor", "barefoot wooden floor step"
+   Want: ONE step per file, about 0.2-0.5 s, soft (socks or bare feet, indoors), no shoes clacking, no reverb tail.
+   (A recording of someone walking is fine too: send it and I'll cut it into single steps.)
+
+2. footstep_tile   (+ footstep_tile_2, _3, _4)
+   Her steps on the kitchen, bathroom and downstairs hall tiles.
+   Search: "footstep tile barefoot", "footsteps socks tile floor", "bathroom floor footstep"
+   Want: same as above, one step per file, a little harder and brighter than the wood.
+
+3. door_creak   (+ door_creak_2, _3)
+   An old interior wooden door being opened slowly. Plays for every door that opens.
+   Search: "door creak slow", "old wooden door creak open", "creaky door opening"
+   Want: 1-2.5 s, the creak only (no latch click, no slam at the end), no background noise.
+   (Doors closing already have their sound.)
+
+4. tap_running
+   The kitchen tap that's running on day 2 ("You didn't turn it on"), heard from across the house.
+   Search: "kitchen faucet running loop", "tap water running sink", "faucet running steel sink"
+   Want: a steady stream into a sink, 5-20 s, ideally made to loop, no hands washing, no tap being turned.
+
+5. pipes   (+ pipes_2, _3)
+   Knocking in the walls now and then, more on day 2.
+   Search: "pipe knocking", "radiator banging", "water hammer pipes", "heating pipes knock"
+   Want: 1-4 s of a few dull metallic knocks, no hissing or running water.
+
+6. clock_tick
+   A ticking clock for the downstairs hall. The house has no clock there yet: I'll put one in when the sound comes in.
+   Search: "wall clock ticking loop", "grandfather clock tick tock", "pendulum clock ticking"
+   Want: a slow tick-tock (about one per second), 4-10 s and loopable, no chimes.
+
+Until a file is here, the game plays its generated stand-in for 1-5 (the clock waits for its file).

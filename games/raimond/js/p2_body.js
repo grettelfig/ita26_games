@@ -297,7 +297,7 @@ function poseChar(P, ps, opt = {}) {
 }
 // ---------------------------------------------------------------- the player's own body
 const ME = { hist: [], t: 0, yaw: 0, held: null };
-function meChar() { return P2.day == 3 ? buildChar('hikari', { coat: 'coath', legs: 'jeans', socks: 'jeans', shoes: 'sneaker', hair: 'hairh', face: 'faceh', long: false, horns: false, skirt: false, sash: false, bell: false, bow: false })
+function meChar() { return P2.day == 4 ? buildChar('hikari', { coat: 'coath', legs: 'jeans', socks: 'jeans', shoes: 'sneaker', hair: 'hairh', face: 'faceh', long: false, horns: false, skirt: false, sash: false, bell: false, bow: false })
   : buildChar('hitori', { coat: 'coat', legs: 'skin2', socks: 'sock', shoes: 'boot', hair: 'hair', face: 'face', long: true, horns: true, skirt: true, sash: true, bell: true, bow: true }) }
 // where the body is: under the camera, a little behind it (so looking down shows your front, not the inside of your coat)
 function mePose(extra = {}) {
@@ -312,7 +312,7 @@ function mePose(extra = {}) {
 }
 // the objects to draw this frame: your body (no head) in the world, all of you in mirrors, your hands up close
 function meObjs(extra = {}) {
-  if (P2.hideBody) return { body: [], mirror: [], vm: [] };
+  if (P2.hideBody) { const vm = []; if (ME.vm) for (const k in ME.vm) vm.push(...ME.vm[k]); return { body: [], mirror: [], vm } }   // in bed: no body, but the hands can still come up (rubbing her eyes)
   const ps = mePose(extra), skipArm = {};
   const vm = []; if (ME.vm) for (const k in ME.vm) { skipArm[k] = 1; vm.push(...ME.vm[k]) }
   const body = poseMe(ps, { skipArm });
@@ -323,6 +323,8 @@ function meObjs(extra = {}) {
 // ---------------------------------------------------------------- hands held in front of the camera
 // positions in camera space (x right, y up, -z ahead) turned into the world, so the room's lights fall on them
 const camPt = (p) => M4.pt(camWorld(), p), camDir = (d) => M4.dir(camWorld(), d);
+// the shoulders hang off the body, not the eyes: when she looks down they stay below and behind, instead of swinging out in front of the camera
+const shPt = (p) => { const k = Math.min(0, CAM3.pitch) * .85; return M4.pt(M4.chain(M4.tr(CAM3.x, CAM3.y, CAM3.z), M4.ry(CAM3.yaw), M4.rx(CAM3.pitch - k), M4.rz(CAM3.roll || 0)), p) };
 function vmArm(side, at, fing, palm, curl, pole) {   // all in camera space
   const H = meModel(); if (H) return vmArmModel(H, side, at, fing, palm, curl, pole);
   const P = meChar(), S = camPt(at[2] < -.3 ? [side * .2, -.42, .02] : [side * .19, -.3, .1]), W = camPt(at), [E, W2] = ik2(S, W, GIRL.ua, GIRL.fa, camDir(pole || [side, -.8, .4]));
@@ -384,7 +386,7 @@ function phoneAnim(u) {
   PHA.call += ((u.mode == 'call' && u.connected && !u.ended ? 1 : 0) - PHA.call) * .05;
   off[0] += PHA.call * .012; off[1] += PHA.call * .01; off[2] += PHA.call * .03; rot[1] -= PHA.call * .12; rot[2] -= PHA.call * .05;
   // shaking hands: worse with every message she reads; Hikari's never quite stop
-  const sh = u.mode == 'texts' ? .4 + .6 * u.shown / Math.max(1, (typeof TEXTS != 'undefined' ? TEXTS.length : 6)) : P2.day == 3 ? .25 : 0;
+  const sh = u.mode == 'texts' ? .4 + .6 * u.shown / Math.max(1, (typeof TEXTS != 'undefined' ? TEXTS.length : 6)) : P2.day == 4 ? .25 : 0;
   PHA.shake += (sh - PHA.shake) * .03; const tr = PHA.shake * (Math.sin(t * 1.9) * .6 + Math.sin(t * 3.7 + 1) * .4);
   off[0] += tr * .0016; off[1] += Math.sin(t * 2.3 + 2) * PHA.shake * .0012; rot[2] += tr * .012;
   // ---- the thumb
@@ -409,7 +411,7 @@ function thumbTarget(u, t) {
   if (u.ended && !PHA.ended) tapOn([30, 115]); PHA.ended = u.ended;
   if (u.closing && !PHA.closing) tapOn(inScr ? [M[0], M[1]] : [30, 122]); PHA.closing = u.closing;
   if (aim) PHA.lastAim = aim;
-  if (PHA.tap > 0) { PHA.tap--; const pr = Math.sin(Math.PI * (14 - PHA.tap) / 14); return phScr(PHA.tapAt[0], PHA.tapAt[1], THUMB.r[2] + .001 + hover * (1 - pr)) }
+  if (PHA.tap > 0) { PHA.tap--; if (PHA.tap == 7 && typeof SFXN != 'undefined') SFXN.thumb(); const pr = Math.sin(Math.PI * (14 - PHA.tap) / 14); return phScr(PHA.tapAt[0], PHA.tapAt[1], THUMB.r[2] + .001 + hover * (1 - pr)) }
   if (aim) return phScr(aim[0], aim[1] + 3, THUMB.r[2] + .001 + hover + Math.sin(t / 29) * .0015);
   return rest;
 }
@@ -431,6 +433,7 @@ function handTex(girl) {
   if (!hk) SPEC[nk] = .7;
 }
 function handMesh(girl) {
+  girl = 'hikari';   // both sisters use the same hand now (natural nails)
   if (HMESH[girl]) return HMESH[girl]; const D = typeof HANDMESH != 'undefined' && HANDMESH[girl]; if (!D || !glInit()) return null; handTex(girl);
   const b64 = s => { const t = atob(s), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u.buffer };
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(b64(D.v)), gl.STATIC_DRAW);
@@ -454,14 +457,14 @@ function phoneSleeve(kind, D) {
 }
 function phoneHeld(t, off, A) {   // returns { objs, corners (UI coords) }
   const L = phoneVM(t, off, A && A.rot), W = M4.mul(camWorld(), L), ph = H3.extra.phoneHand || (H3.extra.phoneHand = single(m => MOD.phone(m)));
-  const H = meModel(), own = H && H.own, girl = (own ? H.key == 'hikari' : P2.day == 3) ? 'hikari' : 'hitori', HM = handMesh(girl);
+  const H = meModel(), own = H && H.own, girl = (own ? H.key == 'hikari' : P2.day == 4) ? 'hikari' : 'hitori', HM = handMesh(girl);
   if (HM && THUMB.B !== HM.D.B) { THUMB.B = HM.D.B; THUMB.a = HM.a; THUMB.b = HM.b }
   const sl = A ? A.slide : 0, sh = [0, 0, -sl], LG = M4.mul(L, M4.tr(...sh)), WG = M4.mul(W, M4.tr(...sh)), loc = p => M4.pt(LG, p);   // the hand, slid along the phone
   const D = HM && HM.D, wr = loc(D ? D.wr : [.088, -.015, .064]), fing = M4.dir(L, PHONE_VM.f), palm = M4.dir(L, [0, 1, 0]);
   const arm = vmArm(1, wr, fing, palm, PHONE_VM.curl, [1, -1.2, .3]); arm[2] = { vis: false };
   if (own) arm[0].parts = [];
   const objs = [posed(ph, W), ...arm];
-  const sv = phoneSleeve(own || P2.day == 3 ? (girl == 'hikari' ? 'long' : 'short') : null, D); if (sv) objs.push(posed(sv, WG));
+  const sv = phoneSleeve(own || P2.day == 4 ? (girl == 'hikari' ? 'long' : 'short') : null, D); if (sv) objs.push(posed(sv, WG));
   if (HM) {   // the hand, and its thumb solved to reach the tip's target
     const B = V3.add(D.B, sh), tip = (A && A.tip) || D.T, [K, T2] = ik2(B, tip, HM.a, HM.b, [.5, 1, .25]), b = new Float32Array(15 * 16);
     b.set(WG, 0); b.set(M4.mul(M4.mul(W, segM(B, K, TH_UP)), HM.inv1), 16); b.set(M4.mul(M4.mul(W, segM(K, T2, TH_UP)), HM.inv2), 32);
@@ -481,7 +484,7 @@ const HMODS = {};
 function hitoriModel() { return charModel('hitori', typeof HITORI_DATA == 'undefined' ? null : HITORI_DATA) }
 function hikariModel() { return charModel('hikari', typeof HIKARI_DATA == 'undefined' ? null : HIKARI_DATA) }
 // the model of whoever you are today: Hitori, or Hikari on day three
-function meModel() { return P2.day == 3 ? hikariModel() : hitoriModel() }
+function meModel() { return P2.day == 4 ? hikariModel() : hitoriModel() }
 function charModel(key, D) {
   if (HMODS[key]) return HMODS[key]; if (!D || !glInit()) return null;
   const b64 = s => { const t = atob(s), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u.buffer };
@@ -542,9 +545,9 @@ function poseMe(ps, opt) { const H = meModel(); return H ? poseModel(H, ps, opt)
 // an arm of the model held up in front of the camera: only that sleeve is drawn, every other bone follows the upper arm
 function vmArmModel(H, side, at, fing, palm, curl, pole) {
   const k = side > 0 ? 'R' : 'L', fd = V3.norm(camDir(fing)), W0 = camPt(at);
-  let S = camPt(at[2] < -.3 ? [side * .2, -.42, .02] : [side * .19, -.3, .1]);
+  let S = camPt(P2.vmSh ? [side * P2.vmSh[0], P2.vmSh[1], P2.vmSh[2]] : at[2] < -.3 ? [side * .2, -.42, .02] : [side * .19, -.3, .1]);   // P2.vmSh: a cut can put the shoulders wider (arms in from the corners)
   // a long sleeve (Hikari): its cuff is pushed on past the wrist, along the back of the hand, so it covers most of the fingers
-  const W = V3.add(W0, V3.mul(V3.norm(V3.add(V3.norm(V3.sub(W0, S)), V3.mul(fd, 1.2))), H.cuff));
+  const W = H.own && handMesh(H.key == 'hikari' ? 'hikari' : 'hitori') ? V3.add(W0, V3.mul(V3.norm(V3.sub(W0, S)), -.012)) : V3.add(W0, V3.mul(V3.norm(V3.add(V3.norm(V3.sub(W0, S)), V3.mul(fd, 1.2))), H.cuff));   // the detailed hand has its own wrist: stop the sleeve just short of it
   // the shoulder (never seen) comes in close enough that the arm really reaches that far, instead of stopping short
   const reach = (H.ua + H.fa) * .9, sw = V3.sub(S, W); if (V3.len(sw) > reach) S = V3.add(W, V3.mul(V3.norm(sw), reach));
   const [E, W2] = ik2(S, W, H.ua, H.fa, camDir(pole || [side, -.8, .4]));
@@ -552,6 +555,15 @@ function vmArmModel(H, side, at, fing, palm, curl, pole) {
   // the shoulder's torso-weighted edge: put the torso where it would sit for this shoulder
   const tor = M4.chain(M4.tr(...S), M4.ry(CAM3.yaw), M4.tr(...V3.mul(V3.sub(H.J['sh' + k], H.J.waist), -1)));
   for (let i = 0; i < 15; i++) mats[i] = tor; mats[HB['ua' + k]] = ua; mats[HB['fa' + k]] = fa; mats[HB['hand' + k]] = H.own ? handM(side, W2, camDir(fing), camDir(palm)) : fa;
-  if (H.own) return [hmObj(H, mats, ['fa' + k, 'hand' + k]), { vis: false }, { vis: false }];   // the model's own hand
+  if (H.own) {   // close up: the forearm from the model, and the detailed hand (the same one that holds the phone, mirrored for the left)
+    const girl = H.key == 'hikari' ? 'hikari' : 'hitori', HM = handMesh(girl);
+    if (!HM) return [hmObj(H, mats, ['fa' + k, 'hand' + k]), { vis: false }, { vis: false }];
+    mats[HB['hand' + k]] = fa;   // anything of the model's own hand stays with the forearm
+    const D = HM.D, src = rigidInv(handM(1, D.wr, PHONE_VM.f, [0, 1, 0])), mir = side < 0 ? new Float32Array([-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]) : M4ID;
+    const MF = M4.mul(M4.mul(handM(side, W0, camDir(fing), camDir(palm)), mir), src), b = new Float32Array(15 * 16);
+    b.set(MF, 0); b.set(M4.mul(M4.mul(MF, segM(D.B, D.K, TH_UP)), HM.inv1), 16); b.set(M4.mul(M4.mul(MF, segM(D.K, D.T, TH_UP)), HM.inv2), 32); for (let i = 3; i < 15; i++) b.set(MF, i * 16);
+    const sv = girl == 'hikari' ? phoneSleeve('long', D) : null;
+    return [hmObj(H, mats, ['fa' + k]), sv ? posed(sv, MF) : { vis: false }, { skin: HM.skin, bones: b, parts: ['skin', 'nail'], vis: true, groups: [] }];
+  }
   return [hmObj(H, mats, ['arm' + k]), { vis: false }, posed(handObj(side, curl, 'skin3'), handM(side, V3.sub(W2, V3.sub(W, W0)), camDir(fing), camDir(palm)))];
 }

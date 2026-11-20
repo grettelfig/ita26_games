@@ -52,7 +52,7 @@ const handVal = h => { let v = 0, a = 0; for (const c of h) { v += BJV(c.r); if 
 const DEALER_INFO = [
   ['???|You\'ve been asleep for a long time, Hitori.', '???|Weeks. You don\'t remember them. That\'s alright. Your body does.', '???|It forgot how to eat. How to sleep. How to be awake.'],
   ['???|There\'s a bottle on your nightstand. It\'s full.', '???|A full bottle is a promise somebody didn\'t keep.', 'Hitori|...I forgot. That\'s all. I just forgot.', '???|For six weeks.'],
-  ['???|The phone calls. You don\'t remember making them.', '???|Three in the morning. Eleven times. You told them what you heard in the walls.', 'Hitori|~I DID hear them. I did.', '???|You heard something.'],
+  ['???|The phone calls today. What they said to you.', 'Hitori|...They hate me. They always did.', '???|That wasn\'t them, Hitori. That was you, using their voices.', '???|You\'ve gotten very good at saying the worst things to yourself.'],
   ['???|They don\'t hate you. Not the way you think they do.', '???|They\'re tired. And they\'re frightened. Of you, a little.', '???|That isn\'t the same as hate. It only sounds the same on the phone.'],
   ['???|Someone in those photographs has been gone a long while.', '???|That\'s where it started. Somebody left first.', 'Hitori|Who? Who left? Tell me who!', '???|You know who. You keep her by your bed.'],
   ['???|She didn\'t leave because of you.', '???|She left because she was young and angry and didn\'t know how to stay.', '???|She\'s been trying to find her way back ever since.'],

@@ -218,7 +218,7 @@ Object.assign(EV, {
   mgr(e) { ride('mgr', e, 240); say('Round and round...') },
   hop(e) { ride('hop', e, 150) },
   sandbox() { if (!F_('sand1')) { S.fl.sand1 = 1; S.money = money() + 8; beep(880, .08); return D(['|You dig with your hands. Something hard... a little tin box!', '|Inside: $8 and a plastic shovel with "UKU" written on it in marker.', 'Hitori:sad|...He buried this. When we were small.']) }
-    const L = ['|You dig a hole. You fill it in. Very satisfying.', '|You build a sandcastle with four towers. The fifth one keeps falling over.', '|The sand is warm, like someone was just sitting here.']; S.fl.sandN = ((S.fl.sandN || 0) + 1) % L.length; D([L[S.fl.sandN]]) }
+    const L = ['|You dig a hole. You fill it in. Very satisfying.', '|You build a sandcastle with four towers. The tide takes it before you finish the moat.', '|The sand is warm, like someone was just sitting here.']; S.fl.sandN = ((S.fl.sandN || 0) + 1) % L.length; D([L[S.fl.sandN]]) }
 });
 function rideUpdate() {
   const R = RIDE; R.t++; const e = R;
@@ -270,7 +270,7 @@ function catThink(e) { e.ct = (e.ct || 0) - 1; if (e.ct <= 0) { e.ct = 60 + Math
 // ---------------------------------------------------------------- piano and the wishing well
 const TUNE = [[523, 220], [587, 220], [659, 220], [523, 220], [659, 330], [587, 220], [523, 440], [392, 440]];
 EV.piano = () => { TUNE.forEach(([f, d], i) => setTimeout(() => beep(f, d / 1000 * .8, .6, 'triangle'), TUNE.slice(0, i).reduce((s, q) => s + q[1], 0))); D(['|You play the only song you know. You don\'t remember learning it.', 'Hitori:neutral|...Uku used to hum this.']) };
-const WISH = ['"You will find what you\'re looking for. You won\'t like where it is."', '"Someone is thinking of you right now. They can\'t remember why."', '"Turn around."', '"Four is a lucky number. Five is not a number."', '"Your friend is closer than you think. Much closer."', '"Keep walking."'];
+const WISH = ['"You will find what you\'re looking for. You won\'t like where it is."', '"Someone is thinking of you right now. They can\'t remember why."', '"Turn around."', '"Six o\'clock is coming. It has been coming for a long time."', '"Your friend is closer than you think. Much closer."', '"Keep walking."'];
 EV.wish = () => ask(['|The old well hums. A sign: WISHES $1.'], ['Toss a coin ($1)', 'Leave'], k => { if (k) return; if (money() < 1) return D(['|You don\'t have a coin.']); S.money -= 1; beep(1400, .05); setTimeout(() => beep(300, .2), 500); const i = (S.fl.wishN = ((S.fl.wishN ?? -1) + 1) % WISH.length); D(['|Plink. A long time later, from very far down, a voice:', '|' + WISH[i]]) });
 (function () { for (const a of ['b_cafe', 'b_hotel']) for (const e of (AREAS[a] || {}).ents || []) if (e.kind == 'piano') e.ev = 'piano';
   const w = AREAS.w_well && AREAS.w_well.ents.find(e => e.kind == 'well'); if (w) w.ev = 'wish';
