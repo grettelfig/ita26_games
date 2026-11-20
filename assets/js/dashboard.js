@@ -9,47 +9,62 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function renderCards() {
-  const grid = document.getElementById("card-grid");
-  if (!grid || !Array.isArray(PLAYERS) || PLAYERS.length === 0) return;
+function buildPlayerCard(player, index) {
+  const { displayName, slug, tagline, accentHue, cohort } = player;
+  const hue = typeof accentHue === "number" ? accentHue : cohort === "b" ? 24 : 195;
+  const warm = cohort === "b";
 
-  const frag = document.createDocumentFragment();
+  const a = document.createElement("a");
+  a.className = warm ? "player-card player-card--warm" : "player-card";
+  a.href = `games/${encodeURIComponent(slug)}/`;
+  a.style.setProperty("--accent-hue", String(hue));
+  a.style.setProperty("--stagger", String(index));
+  a.setAttribute("role", "listitem");
+  a.setAttribute("aria-label", `${displayName}: ava mäng`);
 
-  PLAYERS.forEach((player, index) => {
-    const { displayName, slug, tagline, accentHue } = player;
-    const hue = typeof accentHue === "number" ? accentHue : 195;
-
-    const a = document.createElement("a");
-    a.className = "player-card";
-    a.href = `games/${encodeURIComponent(slug)}/`;
-    a.style.setProperty("--accent-hue", String(hue));
-    a.style.setProperty("--stagger", String(index));
-    a.setAttribute("role", "listitem");
-    a.setAttribute("aria-label", `${displayName}: ava mäng`);
-
-    a.innerHTML = `
-      <span class="card-glare"></span>
-      <div class="card-frame">
-        <span class="corner-deco tl" aria-hidden="true"></span>
-        <span class="corner-deco br" aria-hidden="true"></span>
-        <div>
-          <span class="card-tag">${escapeHtml(tagline ?? "")}</span>
-          <div class="card-name">${escapeHtml(displayName)}</div>
-        </div>
-        <div>
-          <span class="card-cta">Ava mäng <span aria-hidden="true">→</span></span>
-          <div class="card-meta-bar">
-            <span>/games/${escapeHtml(slug)}/</span>
-            <span class="pulse-dot" aria-hidden="true"></span>
-          </div>
+  a.innerHTML = `
+    <span class="card-glare"></span>
+    <div class="card-frame">
+      <span class="corner-deco tl" aria-hidden="true"></span>
+      <span class="corner-deco br" aria-hidden="true"></span>
+      <div>
+        <span class="card-tag">${escapeHtml(tagline ?? "")}</span>
+        <div class="card-name">${escapeHtml(displayName)}</div>
+      </div>
+      <div>
+        <span class="card-cta">Ava mäng <span aria-hidden="true">→</span></span>
+        <div class="card-meta-bar">
+          <span>/games/${escapeHtml(slug)}/</span>
+          <span class="pulse-dot" aria-hidden="true"></span>
         </div>
       </div>
-    `;
+    </div>
+  `;
 
-    frag.appendChild(a);
-  });
+  return a;
+}
 
-  grid.appendChild(frag);
+function renderCards() {
+  if (!Array.isArray(PLAYERS) || PLAYERS.length === 0) return;
+
+  const groupA = PLAYERS.filter((p) => p.cohort !== "b");
+  const groupB = PLAYERS.filter((p) => p.cohort === "b");
+
+  const grid = document.getElementById("card-grid");
+  if (grid) {
+    const frag = document.createDocumentFragment();
+    groupA.forEach((player, index) => frag.appendChild(buildPlayerCard(player, index)));
+    grid.appendChild(frag);
+  }
+
+  const blockB = document.getElementById("cohort-b-block");
+  const gridB = document.getElementById("card-grid-b");
+  if (blockB && gridB && groupB.length > 0) {
+    blockB.hidden = false;
+    const fragB = document.createDocumentFragment();
+    groupB.forEach((player, index) => fragB.appendChild(buildPlayerCard(player, index)));
+    gridB.appendChild(fragB);
+  }
 }
 
 function attachTilt() {

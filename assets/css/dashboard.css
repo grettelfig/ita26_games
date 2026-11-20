@@ -138,6 +138,46 @@ body {
   font-size: 1.15rem;
 }
 
+/* teine rühm */
+.cohort-block {
+  margin-top: clamp(2.75rem, 7vw, 4.25rem);
+  padding-top: clamp(1.75rem, 4vw, 2.5rem);
+  border-top: 1px solid rgba(255, 180, 120, 0.12);
+  position: relative;
+}
+
+.cohort-block::before {
+  content: "";
+  position: absolute;
+  inset: -30% -10% auto;
+  height: 55%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% 0%, hsla(22, 75%, 42%, 0.14), transparent 68%);
+}
+
+.cohort-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 3vw, 1.45rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 0.45rem;
+  background: linear-gradient(120deg, #ffe8d0 0%, #ff9a5a 50%, #ff6b3d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.cohort-lead {
+  margin: 0 auto 1.5rem;
+  max-width: 42ch;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
 /* kaartide ruudustik */
 .card-grid {
   display: grid;
@@ -203,6 +243,36 @@ body {
 .player-card:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
+}
+
+/* sooja rühma kaardid */
+.player-card--warm {
+  --card-surface: rgba(28, 16, 14, 0.78);
+  background: linear-gradient(
+    135deg,
+    hsla(var(--accent-hue), 72%, 52%, 0.5),
+    rgba(255, 200, 160, 0.08) 38%,
+    hsla(calc(var(--accent-hue) + 28), 65%, 48%, 0.38)
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 180, 120, 0.08) inset,
+    0 18px 50px -20px rgba(0, 0, 0, 0.75),
+    0 0 36px -8px hsla(var(--accent-hue), 90%, 55%, 0.28);
+}
+
+.player-card--warm:hover,
+.player-card--warm:focus-visible {
+  --glow: hsla(var(--accent-hue), 100%, 58%, 0.5);
+  box-shadow:
+    0 0 0 1px hsla(var(--accent-hue), 85%, 65%, 0.4) inset,
+    0 22px 56px -18px rgba(0, 0, 0, 0.8),
+    0 0 52px -6px var(--glow);
+}
+
+.player-card--warm .card-frame {
+  background:
+    linear-gradient(165deg, rgba(255, 200, 160, 0.09) 0%, transparent 44%),
+  var(--card-surface, var(--card-bg));
 }
 
 .card-glare {
