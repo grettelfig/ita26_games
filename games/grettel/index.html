@@ -46,14 +46,14 @@
 </head>
 <body>
     <h1>Sudoku</h1>
-    <p>T\u00e4ida t\u00fchjad ruudud numbritega 1\u20139.</p>
+    <p>Täida tühjad ruudud numbritega 1–9.</p>
     <div id="board"></div>
     <button onclick="check()">Kontrolli</button>
     <button onclick="start()">Alusta uuesti</button>
     <p id="message" role="status"></p>
 
     <script>
-        // 0 t\u00e4histab t\u00fchja ruutu
+        // 0 tähistab tühja ruutu
         const puzzle = [
             '530070000',
             '600195000',
@@ -96,7 +96,7 @@
                     cell.readOnly = true;
                 }
 
-                // Paksemad jooned 3 \u00d7 3 plokkide vahel
+                // Paksemad jooned 3 × 3 plokkide vahel
                 if (i % 9 === 2 || i % 9 === 5) {
                     cell.style.borderRight = '2px solid #333';
                 }
@@ -124,7 +124,7 @@
             });
 
             message.textContent = correct
-                ? 'Tubli! Lahendasid Sudoku! \ud83c\udf89'
+                ? 'Tubli! Lahendasid Sudoku! 🎉'
                 : 'Mõni number on vale või puudu!';
         }
 
